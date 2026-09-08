@@ -1,0 +1,23 @@
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:#000;color:#fff}
+body{min-height:100%;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;-webkit-font-smoothing:antialiased}
+header{padding:max(24px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 22px max(16px,env(safe-area-inset-left));text-align:center}
+h1,h2{margin:0;font-weight:500;letter-spacing:-.035em}
+h1{font-size:clamp(28px,8vw,58px)}
+h2{font-size:clamp(22px,6.5vw,42px);text-align:center}
+#lab{width:100%}
+.demo{min-height:96svh;padding:28px max(12px,env(safe-area-inset-right)) max(30px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));display:flex;flex-direction:column;justify-content:center;gap:14px;overflow:hidden}
+.demo+.demo{border-top:1px solid #fff}
+.single header{display:none}.single .demo{min-height:100svh;border-top:0}
+.formula,.state{width:min(1160px,100%);margin:0 auto;text-align:center;font-size:clamp(10px,2.65vw,15px);line-height:1.45;opacity:.76;font-variant-numeric:tabular-nums}
+.state{min-height:1.45em;opacity:.58}
+.visual{position:relative;width:min(1160px,100%);margin:0 auto;min-height:220px;height:clamp(240px,48vw,410px)}
+.visual canvas{display:block;width:100%;height:100%}
+.big-readout{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;font-size:clamp(56px,18vw,150px);font-weight:300;letter-spacing:-.06em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.lambda-wrap{width:min(1160px,100%);height:clamp(210px,42vw,350px);margin:0 auto}
+.lambda-svg{display:block;width:100%;height:100%;shape-rendering:geometricPrecision}
+.lambda-line{stroke:#fff;stroke-width:1.45;fill:none;vector-effect:non-scaling-stroke;stroke-linecap:square;stroke-linejoin:miter}
+canvas{touch-action:pan-y}
+@media (orientation:landscape){.demo{min-height:100svh;padding-top:18px;padding-bottom:18px;gap:8px}.visual{height:35svh;min-height:150px}.lambda-wrap{height:34svh;min-height:150px}h2{font-size:clamp(20px,4vw,30px)}.formula,.state{font-size:11px}}
+@media (prefers-reduced-motion:reduce){.demo{scroll-behavior:auto}}
