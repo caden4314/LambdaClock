@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Lambda Wave</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:#fff}
+  body{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+  main{position:relative;width:100vw;height:100svh;padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));background:#000}
+  #formula{position:absolute;z-index:2;top:max(13px,env(safe-area-inset-top));left:max(14px,env(safe-area-inset-left));font-size:clamp(11px,2.8vw,18px);line-height:1.45;letter-spacing:-.025em;white-space:nowrap;opacity:.9;pointer-events:none}
+  #rate{position:absolute;z-index:2;top:max(13px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));font-size:clamp(11px,2.8vw,18px);opacity:.68;pointer-events:none}
+  #state{position:absolute;z-index:2;top:calc(max(13px,env(safe-area-inset-top)) + 24px);right:max(14px,env(safe-area-inset-right));font-size:clamp(10px,2.5vw,15px);opacity:.6;text-align:right;pointer-events:none;font-variant-numeric:tabular-nums}
+  svg{width:100%;height:100%;display:block;shape-rendering:geometricPrecision}
+  .wire{stroke:#fff;fill:none;vector-effect:non-scaling-stroke;stroke-linecap:square;stroke-linejoin:miter}
+  .guide{stroke-width:1;opacity:.12}
+  #trace{stroke-width:2.15;opacity:.95}
+  #history{stroke-width:1.2;opacity:.18}
+  #connector{stroke-width:1;opacity:.22}
+  #sample{fill:#fff;stroke:none}
+  #lambdaLines line{stroke:#fff;stroke-width:1.55;vector-effect:non-scaling-stroke;stroke-linecap:square}
+  @media (orientation:landscape){#formula,#rate{font-size:12px}#state{font-size:10px}}
+  @media (prefers-reduced-motion:reduce){#sample{display:none}}
+</style>
+</head>
+<body>
+<main>
+  <div id="formula">STEP ≡ λs. s (λx.λv. ⟨x + Δ(v − Δx), v − Δx⟩) &nbsp; Δ = 1/5</div>
+  <div id="rate">λ-eval 5 Hz</div>
+  <div id="state">x=+1.000<br>v=+0.000</div>
+  <svg id="scene" viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid meet" aria-label="Five hertz lambda-calculus harmonic oscillator with linked lambda display">
+    <line class="wire guide" x1="35" y1="188" x2="1165" y2="188"/>
+    <line class="wire guide" x1="35" y1="78" x2="35" y2="298"/>
+    <line class="wire guide" x1="35" y1="78" x2="1165" y2="78"/>
+    <line class="wire guide" x1="35" y1="298" x2="1165" y2="298"/>
+    <polyline id="history" class="wire" points=""/>
+    <polyline id="trace" class="wire" points=""/>
+    <line id="connector" class="wire" x1="1165" y1="188" x2="1165" y2="382"/>
+    <circle id="sample" cx="1165" cy="188" r="5"/>
+    <g id="lambdaLines"></g>
+  </svg>
+</main>
+<script>
+(() => {
+  'use strict';
+
+  const NS='http://www.w3.org/2000/svg';
+  const TICK_MS=200;
+  const DT=1/5;
+  const MAX_SAMPLES=54;
+  const WAVE_LEFT=35, WAVE_RIGHT=1165, WAVE_MID=188, WAVE_AMP=106;
+  const LAMBDA_TOP=390;
+
+  const historyEl=document.getElementById('history');
+  const traceEl=document.getElementById('trace');
+  const connector=document.getElementById('connector');
+  const sample=document.getElementById('sample');
+  const stateEl=document.getElementById('state');
+  const lambdaGroup=document.getElementById('lambdaLines');
+
+  let x=1;
+  let v=0;
+  let tickCount=0;
+  let samples=[];
+  let liveLines=new Map();
+  let animStart=performance.now();
+  let animating=false;
+
+  const V=(name,binder,id)=>({t:'v',name,binder,id});
+  const L=(name,binder,body,id)=>({t:'l',name,binder,body,id});
+  const A=(a,b,id)=>({t:'a',a,b,id});
+
+  function church(n,prefix){
+    const fb=prefix+':f';
+    const xb=prefix+':x';
+    let body=V('x',xb,prefix+':xvar');
+    for(let i=0;i<n;i++) body=A(V('f',fb,prefix+':fvar:'+i),body,prefix+':app:'+i);
+    return L('f',fb,L('x',xb,body,prefix+':lx'),prefix+':lf');
+  }
+
+  function pair(a,b,prefix){
+    const pb=prefix+':p';
+    const pv=V('p',pb,prefix+':pvar');
+    return L('p',pb,A(A(pv,a,prefix+':a0'),b,prefix+':a1'),prefix+':lp');
+  }
+
+  function signedChurch(q,prefix){
+    const pos=Math.max(0,q);
+    const neg=Math.max(0,-q);
+    return pair(church(pos,prefix+':pos'),church(neg,prefix+':neg'),prefix+':sign');
+  }
+
+  function stateTerm(xq,vq){
+    const sb='root:step';
+    const state=pair(signedChurch(xq,'x'),signedChurch(vq,'v'),'state');
+    return L('step',sb,A(V('step',sb,'root:stepvar'),state,'root:apply'),'root:lambda');
+  }
+
+  function allVars(node,out=[]){
+    if(node.t==='v') out.push(node);
+    else if(node.t==='l') allVars(node.body,out);
+    else { allVars(node.a,out); allVars(node.b,out); }
+    return out;
+  }
+
+  function layout(root){
+    const vars=allVars(root,[]);
+    const left=38,right=1162;
+    vars.forEach((node,i)=>{
+      node.x=vars.length<=1?(left+right)/2:left+i*(right-left)/(vars.length-1);
+    });
+
+    const segs=[];
+    const binderY=new Map();
+    const binderRange=new Map();
+    const verticalEnds=new Map();
+
+    function scanBinders(node,depth=0){
+      if(node.t==='l'){
+        const ys=LAMBDA_TOP+16+depth*17;
+        const xs=allVars(node.body,[]).map(n=>n.x);
+        binderY.set(node.binder,ys);
+        binderRange.set(node.binder,[Math.min(...xs)-4,Math.max(...xs)+4,node.id]);
+        scanBinders(node.body,depth+1);
+      }else if(node.t==='a'){
+        scanBinders(node.a,depth);
+        scanBinders(node.b,depth);
+      }
+    }
+    scanBinders(root);
+
+    function leftmost(node){ return allVars(node,[])[0].x; }
+    function maxAppDepth(node,d=0){
+      if(node.t==='a') return Math.max(maxAppDepth(node.a,d+1),maxAppDepth(node.b,d+1));
+      if(node.t==='l') return maxAppDepth(node.body,d);
+      return d;
+    }
+    const maxDepth=Math.max(1,maxAppDepth(root));
+
+    function scanApps(node,depth=0){
+      if(node.t==='a'){
+        const y=LAMBDA_TOP+145+(depth/maxDepth)*310;
+        const x1=leftmost(node.a),x2=leftmost(node.b);
+        segs.push({key:'a:'+node.id,x1,y1:y,x2,y2:y});
+        for(const n of allVars(node,[])) verticalEnds.set(n.id,Math.max(verticalEnds.get(n.id)||0,y));
+        scanApps(node.a,depth+1);
+        scanApps(node.b,depth+1);
+      }else if(node.t==='l'){
+        scanApps(node.body,depth);
+      }
+    }
+    scanApps(root);
+
+    for(const [binder,y] of binderY){
+      const [x1,x2,id]=binderRange.get(binder);
+      segs.push({key:'l:'+id,x1,y1:y,x2,y2:y});
+    }
+
+    for(const node of vars){
+      const y1=binderY.get(node.binder) ?? LAMBDA_TOP;
+      const y2=Math.max(y1+20,verticalEnds.get(node.id)||LAMBDA_TOP+455);
+      segs.push({key:'v:'+node.id,x1:node.x,y1,x2:node.x,y2:Math.min(870,y2)});
+    }
+    return segs;
+  }
+
+  function lineElement(seg){
+    const el=document.createElementNS(NS,'line');
+    el.dataset.key=seg.key;
+    el.style.opacity='1';
+    lambdaGroup.appendChild(el);
+    return el;
+  }
+
+  function midpoint(seg){
+    return {x:(seg.x1+seg.x2)/2,y:(seg.y1+seg.y2)/2};
+  }
+
+  function setLine(el,s){
+    el.setAttribute('x1',s.x1.toFixed(2));
+    el.setAttribute('y1',s.y1.toFixed(2));
+    el.setAttribute('x2',s.x2.toFixed(2));
+    el.setAttribute('y2',s.y2.toFixed(2));
+    el.style.opacity=String(s.opacity ?? 1);
+  }
+
+  function retargetLambda(targets){
+    const nextKeys=new Set(targets.map(s=>s.key));
+    const now=performance.now();
+
+    for(const seg of targets){
+      let item=liveLines.get(seg.key);
+      if(!item){
+        const el=lineElement(seg);
+        const m=midpoint(seg);
+        const start={x1:m.x,y1:m.y,x2:m.x,y2:m.y,opacity:0};
+        item={el,current:start,from:start,target:{...seg,opacity:1},remove:false};
+        setLine(el,start);
+        liveLines.set(seg.key,item);
+      }else{
+        item.from={...item.current};
+        item.target={...seg,opacity:1};
+        item.remove=false;
+      }
+    }
+
+    for(const [key,item] of liveLines){
+      if(nextKeys.has(key)) continue;
+      const m=midpoint(item.current);
+      item.from={...item.current};
+      item.target={x1:m.x,y1:m.y,x2:m.x,y2:m.y,opacity:0,key};
+      item.remove=true;
+    }
+
+    animStart=now;
+    if(!animating){ animating=true; requestAnimationFrame(animateLines); }
+  }
+
+  function ease(t){ return 1-Math.pow(1-t,3); }
+  function mix(a,b,t){ return a+(b-a)*t; }
+
+  function animateLines(now){
+    const raw=Math.min(1,(now-animStart)/170);
+    const t=ease(raw);
+    for(const item of liveLines.values()){
+      const a=item.from,b=item.target;
+      item.current={
+        x1:mix(a.x1,b.x1,t), y1:mix(a.y1,b.y1,t),
+        x2:mix(a.x2,b.x2,t), y2:mix(a.y2,b.y2,t),
+        opacity:mix(a.opacity ?? 1,b.opacity ?? 1,t)
+      };
+      setLine(item.el,item.current);
+    }
+    if(raw<1){
+      requestAnimationFrame(animateLines);
+      return;
+    }
+    for(const [key,item] of [...liveLines]){
+      if(item.remove){ item.el.remove(); liveLines.delete(key); }
+      else{ item.current={...item.target}; item.from={...item.target}; }
+    }
+    animating=false;
+  }
+
+  function qSigned(value){
+    return Math.max(-8,Math.min(8,Math.round(value*8)));
+  }
+
+  function pointString(){
+    if(samples.length<2) return '';
+    return samples.map((s,i)=>{
+      const px=WAVE_LEFT+i*(WAVE_RIGHT-WAVE_LEFT)/(MAX_SAMPLES-1);
+      const py=WAVE_MID-s*WAVE_AMP;
+      return px.toFixed(1)+','+py.toFixed(1);
+    }).join(' ');
+  }
+
+  function updateWave(){
+    samples.push(x);
+    if(samples.length>MAX_SAMPLES) samples.shift();
+    const pts=pointString();
+    historyEl.setAttribute('points',pts);
+    traceEl.setAttribute('points',pts);
+
+    const idx=Math.max(0,samples.length-1);
+    const px=WAVE_LEFT+idx*(WAVE_RIGHT-WAVE_LEFT)/(MAX_SAMPLES-1);
+    const py=WAVE_MID-x*WAVE_AMP;
+    sample.setAttribute('cx',px.toFixed(2));
+    sample.setAttribute('cy',py.toFixed(2));
+    connector.setAttribute('x1',px.toFixed(2));
+    connector.setAttribute('y1',py.toFixed(2));
+    connector.setAttribute('x2',px.toFixed(2));
+    connector.setAttribute('y2',String(LAMBDA_TOP-8));
+  }
+
+  function signed(n){ return (n>=0?'+':'')+n.toFixed(3); }
+
+  function stepOscillator(){
+    // Symplectic Euler form of the same state transform printed above:
+    // v' = v - Δx ; x' = x + Δv'
+    const nextV=v-DT*x;
+    const nextX=x+DT*nextV;
+    v=nextV;
+    x=nextX;
+    tickCount++;
+
+    stateEl.innerHTML='x='+signed(x)+'<br>v='+signed(v);
+    updateWave();
+    retargetLambda(layout(stateTerm(qSigned(x),qSigned(v))));
+  }
+
+  // Draw the initial state, then evaluate the lambda-linked oscillator exactly 5 times per second.
+  samples.push(x);
+  updateWave();
+  retargetLambda(layout(stateTerm(qSigned(x),qSigned(v))));
+  setInterval(stepOscillator,TICK_MS);
+})();
+</script>
+</body>
+</html>
