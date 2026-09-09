@@ -32,7 +32,7 @@ button{font:inherit}
 .side-menu{position:fixed;inset:0 auto 0 0;z-index:45;width:clamp(250px,27vw,340px);height:100dvh;padding:88px 28px 30px;background:rgba(2,2,2,.84);border-right:1px solid rgba(255,255,255,.14);box-shadow:18px 0 60px rgba(0,0,0,.32);transform:translate3d(calc(-100% - 16px),0,0);opacity:.45;pointer-events:none;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);transition:transform .48s cubic-bezier(.18,.82,.18,1),opacity .32s ease;will-change:transform,opacity}
 .side-menu.is-open{transform:translate3d(0,0,0);opacity:1;pointer-events:auto}
 .menu-list{display:flex;flex-direction:column;gap:3px}
-.menu-item{position:relative;width:100%;padding:14px 4px;border:0;background:transparent;color:rgba(255,255,255,.74);font-size:13px;font-weight:400;letter-spacing:.08em;text-align:left;text-transform:uppercase;cursor:pointer;opacity:0;transform:translate3d(-10px,0,0);transition:color .22s ease,transform .42s cubic-bezier(.2,.8,.2,1),opacity .3s ease}
+.menu-item{position:relative;width:100%;padding:14px 4px;border:0;background:transparent;color:rgba(255,255,255,.74);font-size:13px;font-weight:400;letter-spacing:.08em;text-align:left;text-transform:uppercase;cursor:default;opacity:0;transform:translate3d(-10px,0,0);transition:color .22s ease,transform .42s cubic-bezier(.2,.8,.2,1),opacity .3s ease}
 .menu-item::after{content:"";position:absolute;left:4px;right:100%;bottom:8px;height:1px;background:#fff;opacity:.8;transition:right .3s cubic-bezier(.2,.8,.2,1)}
 .menu-item:hover,.menu-item:focus-visible{color:#fff;outline:none}.menu-item:hover::after,.menu-item:focus-visible::after{right:68%}
 .side-menu.is-open .menu-item{opacity:1;transform:translate3d(0,0,0)}
