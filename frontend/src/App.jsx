@@ -1,4 +1,4 @@
-import {createSignal,onCleanup,onMount} from 'solid-js';
+import {batch,createSignal,onCleanup,onMount} from 'solid-js';
 import AnimatedDigit from './AnimatedDigit.jsx';
 import LambdaDisplay from './LambdaDisplay.jsx';
 
@@ -55,8 +55,11 @@ export default function App(){
     timer=setTimeout(()=>{
       const previous=time();
       const next=readTime();
-      setTransition(makeTransition(previous,next,++sequence));
-      setTime(next);
+      const nextTransition=makeTransition(previous,next,++sequence);
+      batch(()=>{
+        setTransition(nextTransition);
+        setTime(next);
+      });
       scheduleTick();
     },delay);
   }
