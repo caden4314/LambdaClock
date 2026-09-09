@@ -3,9 +3,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "backend": "node server/server.mjs"
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "backend": "node server/server.mjs",
+    "check": "node --check server/server.mjs && vite build"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fastify/websocket": "11.3.0",
+    "fastify": "5.12.3",
+    "msgpackr": "2.1.0"
+  },
+  "devDependencies": {
+    "pixi.js": "8.20.1",
+    "solid-js": "1.9.15",
+    "vite": "8.2.2",
+    "vite-plugin-solid": "2.11.14"
   }
 }
