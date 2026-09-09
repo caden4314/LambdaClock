@@ -311,12 +311,10 @@ export default function LambdaDisplay(props){
   function reductionTransition(finalRoot,transition){
     clearStageTimers();
     const index=5;
-    const stages=reductionStages(transition.previousDigits[index],index,transition.seq);
-    const roots=stages.map(stage=>timeTerm(transition.nextDigits,index,stage));
-    if(!roots.length){setTarget(finalRoot,{transition,pulse:true});return;}
-    setTarget(roots[0],{transition,pulse:true,ignoreCascade:true});
-    roots.slice(1).forEach((root,i)=>schedule(()=>setTarget(root,{transition,ignoreCascade:true}),105*(i+1)));
-    schedule(()=>setTarget(finalRoot,{transition,ignoreCascade:true}),105*(roots.length+1));
+    // Keep the real SUCC beta-reduction as lambda math, but do not expose
+    // its temporary intermediate topology to the visual animation.
+    reductionStages(transition.previousDigits[index],index,transition.seq);
+    setTarget(finalRoot,{transition,pulse:true,ignoreCascade:true});
   }
 
   createEffect(()=>{
