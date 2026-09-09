@@ -21,19 +21,36 @@ jobs:
         run: |
           node --check server/server.mjs
           node --check server/clock-core.mjs
-      - name: Backend health smoke test
+      - name: Backend HTTP and WebSocket smoke test
         run: |
-          npm run backend > /tmp/lambda-backend.log 2>&1 &
+          LAMBDA_REVISION="$GITHUB_SHA" npm run backend > /tmp/lambda-backend.log 2>&1 &
           PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
           for i in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:8789/health >/tmp/health.json; then
-              cat /tmp/health.json
-              kill $PID
-              wait $PID || true
-              exit 0
+              break
             fi
             sleep 1
           done
-          cat /tmp/lambda-backend.log
-          kill $PID || true
-          exit 1
+          cat /tmp/health.json
+          grep -q 'fastify-websocket-msgpack-v1' /tmp/health.json
+          node <<'NODE'
+          const ws = new WebSocket('ws://127.0.0.1:8789/ws')
+          const timer = setTimeout(() => {
+            console.error('WebSocket smoke test timed out')
+            process.exit(2)
+          }, 5000)
+          ws.addEventListener('open', () => {
+            console.log('WebSocket handshake succeeded')
+            clearTimeout(timer)
+            ws.close()
+            setTimeout(() => process.exit(0), 50)
+          })
+          ws.addEventListener('error', (event) => {
+            console.error('WebSocket smoke test failed', event)
+            process.exit(3)
+          })
+          NODE
+          kill $PID
+          wait $PID || true
+          trap - EXIT
