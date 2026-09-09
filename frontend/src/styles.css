@@ -4,13 +4,22 @@ html,body,#root{margin:0;width:100%;height:100%;min-height:100%;background:#000;
 body{-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
 .screen{width:100vw;height:100dvh;display:grid;grid-template-rows:minmax(0,44vh) minmax(0,56vh);background:#000;color:#fff;padding:0;overflow:hidden}
 .clock{display:flex;align-items:end;justify-content:center;padding:0 3vw 3.5vh;font-size:clamp(58px,15vw,210px);font-weight:400;line-height:.82;letter-spacing:-.075em;font-variant-numeric:tabular-nums;white-space:nowrap;user-select:none}
-.clock span{display:inline-block;min-width:2.02ch;text-align:center}
-.clock i{font-style:normal;display:inline-block;width:.55ch;text-align:center;opacity:.72;animation:colonPulse 1s ease-in-out infinite}
-.day-period{display:inline-block;margin-left:.42em;padding-bottom:.05em;font-size:.22em;font-weight:400;line-height:1;letter-spacing:.02em;opacity:.86}
+.time-group{display:inline-flex;align-items:flex-end;height:.9em}
+.digit-slot{position:relative;display:inline-block;width:.92ch;height:.9em;overflow:hidden;contain:paint;vertical-align:bottom}
+.digit-layer{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;will-change:transform,opacity,filter;transform-origin:50% 72%}
+.digit-new-0{animation:digitInA .46s cubic-bezier(.18,.78,.18,1) both}.digit-new-1{animation:digitInB .46s cubic-bezier(.18,.78,.18,1) both}
+.digit-old-0{animation:digitOutA .42s cubic-bezier(.38,0,.58,1) both}.digit-old-1{animation:digitOutB .42s cubic-bezier(.38,0,.58,1) both}
+.clock i{font-style:normal;display:inline-block;width:.55ch;text-align:center;opacity:.72;animation:colonPulse 1s ease-in-out infinite;will-change:opacity,transform}
+.day-period{display:inline-flex;align-items:flex-end;margin-left:.42em;padding-bottom:.05em;font-size:.22em;font-weight:400;line-height:1;letter-spacing:.02em;opacity:.86;height:1em}
+.day-period .digit-slot{width:.72em;height:1em}.day-period .digit-layer{align-items:flex-end}.day-period>span:last-child{display:inline-block;width:.72em;text-align:center}
 .diagrams{position:relative;display:grid;grid-template-columns:minmax(0,1fr) clamp(96px,15vw,210px);gap:clamp(6px,1.2vw,20px);width:100%;height:100%;min-height:0;overflow:hidden}
 .diagram-wrap{position:relative;width:100%;height:100%;padding:1vh 0 3vh 2.5vw;overflow:hidden}
 .period-diagram-wrap{position:relative;width:100%;height:100%;padding:8vh 2.5vw 8vh 0;overflow:hidden;opacity:.9}
 .lambda-display{display:block;width:100%;height:100%;background:#000}
-@keyframes colonPulse{0%,100%{opacity:.32;transform:translateY(0)}50%{opacity:.9;transform:translateY(-.015em)}}
+@keyframes digitInA{0%{opacity:0;transform:translate3d(0,.42em,0) scale(.94);filter:blur(3px)}68%{opacity:1;transform:translate3d(0,-.025em,0) scale(1.01);filter:blur(0)}100%{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}}
+@keyframes digitInB{0%{opacity:0;transform:translate3d(0,.42em,0) scale(.94);filter:blur(3px)}68%{opacity:1;transform:translate3d(0,-.025em,0) scale(1.01);filter:blur(0)}100%{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}}
+@keyframes digitOutA{0%{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}100%{opacity:0;transform:translate3d(0,-.38em,0) scale(.96);filter:blur(2.5px)}}
+@keyframes digitOutB{0%{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}100%{opacity:0;transform:translate3d(0,-.38em,0) scale(.96);filter:blur(2.5px)}}
+@keyframes colonPulse{0%,100%{opacity:.3;transform:scale(.97)}50%{opacity:.9;transform:scale(1.015)}}
 @media(max-width:600px){.screen{grid-template-rows:minmax(0,39vh) minmax(0,61vh)}.clock{font-size:clamp(48px,17vw,105px);padding:0 2vw 2vh}.day-period{font-size:.2em;margin-left:.36em}.diagrams{grid-template-columns:minmax(0,1fr) clamp(72px,22vw,120px);gap:2px}.diagram-wrap{padding:0 0 2vh 1.5vw}.period-diagram-wrap{padding:12vh 1.5vw 12vh 0}}
-@media(prefers-reduced-motion:reduce){.clock i{animation:none;opacity:.7}}
+@media(prefers-reduced-motion:reduce){.clock i{animation:none;opacity:.7}.digit-layer{animation:none!important;filter:none!important;transform:none!important}.digit-old{display:none}}
