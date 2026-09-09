@@ -19,6 +19,12 @@ function timeTerm(digits){
   return L(k,body);
 }
 
+function periodTerm(period){
+  const truth='period:true',falsity='period:false';
+  const binder=period==='PM'?truth:falsity;
+  return L(truth,L(falsity,V(binder,'period:value')));
+}
+
 function leaves(node,out=[]){
   if(node.t==='v') out.push(node);
   else if(node.t==='l') leaves(node.body,out);
@@ -151,8 +157,8 @@ export default function LambdaDisplay(props){
     raf=requestAnimationFrame(frame);
   }
 
-  function setTarget(digits){
-    const diagram=layout(timeTerm(digits));
+  function setTarget(root){
+    const diagram=layout(root);
     const now=performance.now();
     const instant=first||reduced();
     view.targetW=diagram.gridW;
@@ -204,7 +210,10 @@ export default function LambdaDisplay(props){
     ensureAnimation();
   }
 
-  createEffect(()=>setTarget(props.digits));
+  createEffect(()=>{
+    const root=props.period!==undefined?periodTerm(props.period):timeTerm(props.digits??[]);
+    setTarget(root);
+  });
 
   function resize(){
     if(!canvas)return;
@@ -325,5 +334,9 @@ export default function LambdaDisplay(props){
     if(raf)cancelAnimationFrame(raf);
   });
 
-  return <canvas ref={canvas} class="lambda-display" aria-label="Animated Tromp lambda diagram of the current time"/>;
+  const label=()=>props.period!==undefined
+    ?`Animated Tromp lambda diagram of ${props.period}, encoded as a Church boolean`
+    :'Animated Tromp lambda diagram of the current local time';
+
+  return <canvas ref={canvas} class="lambda-display" aria-label={label()}/>;
 }

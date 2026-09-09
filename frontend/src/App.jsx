@@ -1,44 +1,49 @@
 import { createSignal, onCleanup, onMount } from 'solid-js';
 import LambdaDisplay from './LambdaDisplay.jsx';
 
-const formatter=new Intl.DateTimeFormat('en-US',{
-  timeZone:'America/Chicago',hourCycle:'h23',hour:'2-digit',minute:'2-digit',second:'2-digit'
-});
+const two=n=>String(n).padStart(2,'0');
 
 function readTime(){
-  const parts=formatter.formatToParts(new Date());
-  const get=t=>parts.find(p=>p.type===t)?.value||'00';
-  const text=`${get('hour')}:${get('minute')}:${get('second')}`;
-  return {text,digits:text.replaceAll(':','').split('').map(Number)};
+  const now=new Date();
+  const h24=now.getHours();
+  const hour=h24%12||12;
+  const minute=two(now.getMinutes());
+  const second=two(now.getSeconds());
+  const period=h24>=12?'PM':'AM';
+  const text=`${hour}:${minute}:${second}`;
+  const digits=`${hour}${minute}${second}`.split('').map(Number);
+  const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'local time';
+  return {hour:String(hour),minute,second,period,text,digits,zone};
 }
 
 export default function App(){
-  const first=readTime();
-  const [time,setTime]=createSignal(first.text);
-  const [digits,setDigits]=createSignal(first.digits);
+  const [time,setTime]=createSignal(readTime());
   let timer;
 
-  onMount(()=>{
-    let last=first.text;
-    timer=setInterval(()=>{
-      const next=readTime();
-      if(next.text===last)return;
-      last=next.text;
-      setTime(next.text);
-      setDigits(next.digits);
-    },100);
-  });
-  onCleanup(()=>clearInterval(timer));
+  function scheduleTick(){
+    const delay=1000-(Date.now()%1000)+16;
+    timer=setTimeout(()=>{
+      setTime(readTime());
+      scheduleTick();
+    },delay);
+  }
 
-  const pieces=()=>time().split(':');
+  onMount(scheduleTick);
+  onCleanup(()=>clearTimeout(timer));
 
   return (
     <main class="screen">
-      <div class="clock" aria-label={`Current time ${time()}`}>
-        <span>{pieces()[0]}</span><i>:</i><span>{pieces()[1]}</span><i>:</i><span>{pieces()[2]}</span>
+      <div class="clock" aria-label={`Current local time ${time().text} ${time().period}, ${time().zone}`}>
+        <span>{time().hour}</span><i>:</i><span>{time().minute}</span><i>:</i><span>{time().second}</span>
+        <b class="day-period">{time().period}</b>
       </div>
-      <div class="diagram-wrap">
-        <LambdaDisplay digits={digits()} />
+      <div class="diagrams">
+        <div class="diagram-wrap">
+          <LambdaDisplay digits={time().digits}/>
+        </div>
+        <div class="period-diagram-wrap">
+          <LambdaDisplay period={time().period}/>
+        </div>
       </div>
     </main>
   );
