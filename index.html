@@ -6,12 +6,39 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Lambda Display Lab</title>
-<link rel="stylesheet" href="lab.css?v=7">
+<title>Pure Lambda Cube</title>
+<link rel="stylesheet" href="cube.css?v=1">
 </head>
 <body>
-<header><h1>Lambda Display Lab</h1></header>
-<main id="lab"></main>
-<script src="lab.js?v=7"></script>
+<header>
+  <h1>Pure Lambda Cube</h1>
+  <p>generated topology • exact rational rotation • 10 Hz lambda state</p>
+</header>
+<main>
+  <div class="controls"><button id="toggle">Pause</button><button id="reset">Reset</button></div>
+  <div class="grid">
+    <section class="panel">
+      <h2>3D result</h2>
+      <canvas id="cubeCanvas" aria-label="Rotating generated cube"></canvas>
+      <div class="meta">
+        <div><span>frame</span><strong id="frameValue">0</strong></div>
+        <div><span>vertices</span><strong id="vertexValue">0</strong></div>
+        <div><span>edges</span><strong id="edgeValue">0</strong></div>
+        <div><span>radius</span><strong id="radiusValue">1</strong></div>
+      </div>
+    </section>
+    <section class="panel">
+      <h2>Lambda state</h2>
+      <div id="lambdaStage" class="lambda-stage"></div>
+      <div class="meta"><div><span>exact rotation</span><strong id="exactValue"></strong></div></div>
+    </section>
+    <section class="panel wide">
+      <h2>Current calculus form</h2>
+      <div id="termText" class="term"></div>
+      <p class="note">The old multi-demo Lambda Display Lab is archived in Git history and remains in the repository unchanged. This root page is now reserved for the pure-lambda cube work.</p>
+    </section>
+  </div>
+</main>
+<script src="cube.js?v=1"></script>
 </body>
 </html>
