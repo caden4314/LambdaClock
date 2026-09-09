@@ -6,39 +6,39 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Pure Lambda Cube</title>
-<link rel="stylesheet" href="cube.css?v=1">
+<title>Pure Lambda Cube — Live Evaluator</title>
+<link rel="stylesheet" href="cube.css?v=2">
 </head>
 <body>
 <header>
   <h1>Pure Lambda Cube</h1>
-  <p>generated topology • exact rational rotation • 10 Hz lambda state</p>
+  <p>live β-reduction • raw terms • generated topology • exact rational rotation • no fixed math Hz</p>
 </header>
 <main>
-  <div class="controls"><button id="toggle">Pause</button><button id="reset">Reset</button></div>
+  <div class="controls"><button id="toggle">Pause evaluator</button><button id="reset">Reset machine</button></div>
   <div class="grid">
     <section class="panel">
-      <h2>3D result</h2>
-      <canvas id="cubeCanvas" aria-label="Rotating generated cube"></canvas>
+      <h2>Latest completed cube state</h2>
+      <canvas id="cubeCanvas" aria-label="Cube produced by the lambda evaluator"></canvas>
       <div class="meta">
-        <div><span>frame</span><strong id="frameValue">0</strong></div>
-        <div><span>vertices</span><strong id="vertexValue">0</strong></div>
-        <div><span>edges</span><strong id="edgeValue">0</strong></div>
+        <div><span>completed frame</span><strong id="frameValue">0</strong></div>
+        <div><span>generated vertices</span><strong id="vertexValue">…</strong></div>
+        <div><span>generated edges</span><strong id="edgeValue">…</strong></div>
         <div><span>radius</span><strong id="radiusValue">1</strong></div>
       </div>
     </section>
-    <section class="panel">
-      <h2>Lambda state</h2>
+    <section class="panel evaluator-panel">
+      <h2>Live lambda evaluator</h2>
       <div id="lambdaStage" class="lambda-stage"></div>
-      <div class="meta"><div><span>exact rotation</span><strong id="exactValue"></strong></div></div>
+      <div class="meta evaluator-meta"><div><span>machine</span><strong id="exactValue">starting…</strong></div></div>
     </section>
     <section class="panel wide">
-      <h2>Current calculus form</h2>
-      <div id="termText" class="term"></div>
-      <p class="note">The old multi-demo Lambda Display Lab is archived in Git history and remains in the repository unchanged. This root page is now reserved for the pure-lambda cube work.</p>
+      <h2>Raw current term</h2>
+      <div id="termText" class="term raw-term"></div>
+      <p class="note">This is the evaluator's current De Bruijn term after the most recent β-reduction. It is not a normalized-result visualization or a telemetry surrogate. JavaScript supplies only the reducer, decoder, projection and pixels; cube construction, topology, binary arithmetic and 3-D rotation are closed lambda terms.</p>
     </section>
   </div>
 </main>
-<script src="cube.js?v=1"></script>
+<script src="live2.js?v=2"></script>
 </body>
 </html>
