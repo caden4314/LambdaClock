@@ -34,9 +34,9 @@ export default function SideMenu(props){
 
       <aside id="side-menu" class={`side-menu${props.open?' is-open':''}`} aria-hidden={!props.open}>
         <nav class="menu-list" aria-label="Lambda Clock menu">
-          <button type="button" class="menu-item">Clock</button>
-          <button type="button" class="menu-item">Lambda</button>
-          <button type="button" class="menu-item">Effects</button>
+          <div class="menu-item">Clock</div>
+          <div class="menu-item">Lambda</div>
+          <div class="menu-item">Effects</div>
         </nav>
       </aside>
     </>
