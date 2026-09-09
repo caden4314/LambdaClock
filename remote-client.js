@@ -23,7 +23,7 @@ function drawWire(canvas,wire){
   const{c,w,h}=prep(canvas);if(!wire)return;
   c.globalAlpha=.66;c.lineWidth=.8;
   for(const s of wire.segments||[]){const[x1,y1,x2,y2,k]=s;c.globalAlpha=k===0?.5:k===1?.72:.38;c.lineWidth=k===1?1.05:.72;c.beginPath();c.moveTo(8+x1*(w-16),6+y1*(h-12));c.lineTo(8+x2*(w-16),6+y2*(h-12));c.stroke();}
-  const stack=wire.stack||[];if(stack.length){const base=h*.9,usable=h*.07;c.globalAlpha=.42;c.lineWidth=.8;for(let i=0;i<stack.length;i++){const x=8+i*(Math.max(1,w-16)/Math.max(1,stack.length-1));c.beginPath();c.moveTo(x,base);c.lineTo(x,base+usable*(stack[i]==='upd'?.45:1));c.stroke();}}
+  const stack=wire.stack||[];if(stack.length){const base=h*.9,usable=h*.07;c.globalAlpha=.42;c.lineWidth=.8;for(let i=0;i<stack.length;i++){const x=8+i*(Math.max(1,w-16)/Math.max(1,stack.length-1));c.beginPath();c.moveTo(x,base);c.lineTo(x,base+usable*(stack[i]==='upd' ? .45 : 1));c.stroke();}}
   c.globalAlpha=1;
 }
 
