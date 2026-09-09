@@ -319,7 +319,7 @@ export default function LambdaDisplay(props){
 
   createEffect(()=>{
     const transition=props.transition||{seq:0,changed:[],delays:{}};
-    const root=props.period!==undefined?periodTerm(props.period):timeTerm(props.digits??[]);
+    const root=props.root??(props.period!==undefined?periodTerm(props.period):timeTerm(props.digits??[]));
     const seq=transition.seq??0;
     if(seq===lastSeq){setTarget(root,{transition});return;}
     lastSeq=seq;
@@ -493,6 +493,6 @@ export default function LambdaDisplay(props){
     canvas?.removeEventListener('pointerup',onPointerUp);canvas?.removeEventListener('pointercancel',onPointerUp);canvas?.removeEventListener('pointerleave',onPointerLeave);
   });
 
-  const label=()=>props.period!==undefined?`Animated Tromp lambda diagram of ${props.period}, encoded as a Church boolean`:'Animated Tromp lambda diagram of the current local time';
+  const label=()=>props.label||(props.period!==undefined?`Animated Tromp lambda diagram of ${props.period}, encoded as a Church boolean`:'Animated Tromp lambda diagram of the current local time');
   return <canvas ref={canvas} class="lambda-display" aria-label={label()}/>;
 }

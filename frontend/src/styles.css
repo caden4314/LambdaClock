@@ -82,3 +82,10 @@ button{font:inherit}
 }
 @media(max-width:420px){.menu-trigger{top:10px;left:8px}.project-page{padding-left:10px;padding-right:10px}.project-head h1{font-size:30px}.bit-row{grid-template-columns:repeat(2,1fr)}.boolean-flow{grid-template-columns:1fr}.bool-node.output{grid-column:auto}.lab-controls{gap:6px}.lab-button{padding:8px 11px;min-width:58px}.equation{gap:8px}.sequence-strip span{min-width:32px;height:32px}.tree-svg{min-height:260px}}
 @media(prefers-reduced-motion:reduce){.menu-project,.hero-number,.church-marks i,.reduction-stage code,.bit,.sequence-strip span{animation:none!important;transition-duration:.01ms!important}}
+
+/* shared real lambda visualization for every lab */
+.project-lambda-panel{width:100%;border:1px solid rgba(255,255,255,.12);background:#000;overflow:hidden}
+.project-lambda-canvas{width:100%;height:clamp(220px,34vh,360px);min-height:220px;overflow:hidden;background:#000}
+.project-lambda-canvas .lambda-display{width:100%;height:100%;animation:none}
+.project-lambda-expression{display:block;width:100%;padding:11px 14px;border-top:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.58);font-size:11px;line-height:1.45;overflow-wrap:anywhere;white-space:normal}
+@media(max-width:720px){.project-lambda-canvas{height:clamp(190px,30vh,280px);min-height:190px}.project-lambda-expression{padding:10px 11px;font-size:10px}}
