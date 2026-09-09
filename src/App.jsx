@@ -14,6 +14,7 @@ export default function App() {
 
   let worker;
   let viz;
+  let visibilityHandler;
 
   const updateRawSubscription = () => {
     worker?.postMessage({
@@ -24,7 +25,7 @@ export default function App() {
   };
 
   onMount(async () => {
-    viz = new LambdaVisualizer(stageHost);
+    viz = new LambdaVisualizer(stageHost, (id) => worker?.postMessage({ t: 'termEvicted', id }));
     await viz.init();
     worker = new Worker(new URL('./stream.worker.js', import.meta.url), { type: 'module' });
     worker.onmessage = (event) => {
@@ -37,20 +38,8 @@ export default function App() {
       if (msg.t === 'state') {
         setConnected(true);
         setViewerCount(msg.viewers || 0);
-        setClock({
-          time: msg.clock.time,
-          beta: msg.clock.beta,
-          rate: msg.clock.rate,
-          nodes: msg.clock.nodes
-        });
-        setCube((prev) => ({
-          ...prev,
-          frame: msg.cube.frame,
-          phase: msg.cube.phase,
-          beta: msg.cube.beta,
-          rate: msg.cube.rate,
-          nodes: msg.cube.nodes
-        }));
+        setClock({ time: msg.clock.time, beta: msg.clock.beta, rate: msg.clock.rate, nodes: msg.clock.nodes });
+        setCube((prev) => ({ ...prev, frame: msg.cube.frame, phase: msg.cube.phase, beta: msg.cube.beta, rate: msg.cube.rate, nodes: msg.cube.nodes }));
         viz.setActiveTerms(msg.clock.termId, msg.cube.termId);
         return;
       }
@@ -70,10 +59,12 @@ export default function App() {
       }
     };
     worker.postMessage({ t: 'connect' });
-    document.addEventListener('visibilitychange', () => worker?.postMessage({ t: 'visibility', visible: !document.hidden }));
+    visibilityHandler = () => worker?.postMessage({ t: 'visibility', visible: !document.hidden });
+    document.addEventListener('visibilitychange', visibilityHandler);
   });
 
   onCleanup(() => {
+    if (visibilityHandler) document.removeEventListener('visibilitychange', visibilityHandler);
     worker?.terminate();
     viz?.destroy();
   });
