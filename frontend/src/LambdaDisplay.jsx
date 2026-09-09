@@ -256,12 +256,17 @@ export default function LambdaDisplay(props){
     if(alpha<=.002)return;
 
     if(item.energy>.025){
-      ctx.strokeStyle=`rgba(255,255,255,${alpha*item.energy*.07})`;
-      ctx.lineWidth=stroke+Math.min(3,1.5+item.energy*1.5);
-      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+      const travel=Math.min(1,Math.max(0,(1-item.energy)*1.42));
+      const tail=Math.max(0,travel-.18);
+      const head=Math.min(1,travel+.12);
+      const hx1=x1+(x2-x1)*tail,hy1=y1+(y2-y1)*tail;
+      const hx2=x1+(x2-x1)*head,hy2=y1+(y2-y1)*head;
+      ctx.strokeStyle=`rgba(255,255,255,${alpha*item.energy*.16})`;
+      ctx.lineWidth=stroke+Math.min(4,1.7+item.energy*2.2);
+      ctx.beginPath();ctx.moveTo(hx1,hy1);ctx.lineTo(hx2,hy2);ctx.stroke();
     }
 
-    ctx.strokeStyle=`rgba(255,255,255,${alpha})`;
+ctx.strokeStyle=`rgba(255,255,255,${alpha})`;
     ctx.lineWidth=stroke;
     ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
   }
@@ -308,7 +313,7 @@ export default function LambdaDisplay(props){
       item.a=alpha.value;item.va=alpha.velocity;
       if(Math.abs(item.a-wantedAlpha)>.002||Math.abs(item.va)>.01)active=true;
 
-      item.energy*=Math.exp(-dt*5.4);
+      item.energy*=Math.exp(-dt*4.35);
       if(item.energy>.012)active=true;
 
       if(item.removing&&item.a<.003&&Math.abs(item.va)<.008){
