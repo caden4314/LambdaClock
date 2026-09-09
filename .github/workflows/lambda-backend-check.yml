@@ -1,0 +1,27 @@
+name: Lambda Backend Check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Syntax check
+        run: |
+          node --check server/server.mjs
+          node --check server/clock-core.mjs
+          node --check remote-client.js
+      - name: Backend health smoke test
+        run: |
+          node server/server.mjs > /tmp/lambda-backend.log 2>&1 &
+          PID=$!
+          sleep 2
+          curl --fail --silent --show-error http://127.0.0.1:8789/health
+          kill $PID
+          wait $PID || true
