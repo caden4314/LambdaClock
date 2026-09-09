@@ -6,45 +6,59 @@
 <meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Pure Lambda Cube — Raw Live Evaluator</title>
-<link rel="stylesheet" href="cube.css?v=4">
+<title>Pure Lambda Clock + Cube</title>
+<link rel="stylesheet" href="cube.css?v=6">
 </head>
 <body>
 <header>
-  <h1>Pure Lambda Cube</h1>
-  <p>uncapped β-reduction • raw reducer output • call-by-need graph sharing • generated topology • exact rational rotation</p>
+  <h1>Pure Lambda Clock + Cube</h1>
+  <p>VPS-hosted uncapped β-reduction • lightweight live display</p>
 </header>
 <main>
-  <div class="controls"><button id="toggle">Pause evaluator</button><button id="reset">Reset machine</button></div>
-  <div class="grid">
+  <div id="connectionStatus" class="connection" data-state="connecting">CONNECTING</div>
+  <div class="controls"><button id="toggle">Pause stream</button><button id="reset">Reset cube evaluator</button></div>
+
+  <section class="panel clock-panel">
+    <h2>Raw Lambda Clock</h2>
+    <div id="clockValue" class="clock-value">--:--:--</div>
+    <div id="clockSource" class="clock-source">America/Chicago</div>
+    <canvas id="clockLambda" class="lambda-canvas clock-lambda" aria-label="Live raw lambda clock evaluator"></canvas>
+    <div class="meta">
+      <div><span>β reductions</span><strong id="clockBeta">0</strong></div>
+      <div><span>β rate</span><strong id="clockRate">0 β/s</strong></div>
+      <div><span>control nodes</span><strong id="clockNodes">0</strong></div>
+      <div><span>input</span><strong>wall clock → λ term</strong></div>
+    </div>
+  </section>
+
+  <div class="grid cube-grid">
     <section class="panel">
-      <h2>Last decodable cube frame</h2>
-      <canvas id="cubeCanvas" aria-label="Cube produced by the pure lambda evaluator"></canvas>
+      <h2>Last completed cube frame</h2>
+      <canvas id="cubeCanvas" aria-label="Cube produced by the VPS lambda evaluator"></canvas>
       <div class="meta">
-        <div><span>completed frame</span><strong id="frameValue">0</strong></div>
-        <div><span>generated vertices</span><strong id="vertexValue">…</strong></div>
-        <div><span>generated edges</span><strong id="edgeValue">…</strong></div>
-        <div><span>radius</span><strong id="radiusValue">1</strong></div>
+        <div><span>frame</span><strong id="frameValue">0</strong></div>
+        <div><span>vertices</span><strong id="vertexValue">…</strong></div>
+        <div><span>edges</span><strong id="edgeValue">…</strong></div>
+        <div><span>phase</span><strong id="phaseValue">starting…</strong></div>
       </div>
     </section>
     <section class="panel evaluator-panel">
-      <h2>Live raw lambda evaluator</h2>
-      <div id="lambdaStage" class="lambda-stage"></div>
+      <h2>Live raw cube evaluator</h2>
+      <canvas id="cubeLambda" class="lambda-canvas" aria-label="Live raw cube lambda evaluator"></canvas>
       <div class="meta evaluator-meta">
-        <div><span>phase</span><strong id="phaseValue">starting…</strong></div>
         <div><span>β reductions</span><strong id="betaValue">0</strong></div>
         <div><span>β rate</span><strong id="rateValue">0 β/s</strong></div>
-        <div><span>active control nodes</span><strong id="nodesValue">0</strong></div>
+        <div><span>control nodes</span><strong id="nodesValue">0</strong></div>
+        <div><span>math</span><strong>exact rational rotation</strong></div>
       </div>
-      <div class="meta evaluator-meta"><div><span>exact lambda state</span><strong id="exactValue">starting…</strong></div></div>
-    </section>
-    <section class="panel wide">
-      <h2>Raw reducer output</h2>
-      <div id="termText" class="term raw-term"></div>
-      <p class="note">This panel is the machine's raw current state: the active De Bruijn control term, its environment references, the real argument/update stack, and every reachable thunk/value cell. It is not a normalized-result summary. The evaluator runs without a fixed math clock and only yields briefly for browser painting. Cube construction, topology, IDs, signed binary arithmetic, exact rotation and scale are lambda terms; JavaScript is the evaluator/decoder/display boundary.</p>
     </section>
   </div>
+
+  <div class="grid raw-grid">
+    <section class="panel raw-panel"><h2>Raw clock reducer</h2><pre id="clockRaw" class="term raw-term">waiting for backend…</pre></section>
+    <section class="panel raw-panel"><h2>Raw cube reducer</h2><pre id="cubeRaw" class="term raw-term">waiting for backend…</pre></section>
+  </div>
 </main>
-<script type="module" src="cube-raw.js?v=5"></script>
+<script src="remote-client.js?v=6"></script>
 </body>
 </html>
