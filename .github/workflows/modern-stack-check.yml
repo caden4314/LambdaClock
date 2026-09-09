@@ -1,0 +1,39 @@
+name: Modern Lambda Stack Check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install exact dependencies
+        run: npm install --no-audit --no-fund
+      - name: Build frontend
+        run: npm run build
+      - name: Syntax check backend
+        run: |
+          node --check server/server.mjs
+          node --check server/clock-core.mjs
+      - name: Backend health smoke test
+        run: |
+          npm run backend > /tmp/lambda-backend.log 2>&1 &
+          PID=$!
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8789/health >/tmp/health.json; then
+              cat /tmp/health.json
+              kill $PID
+              wait $PID || true
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/lambda-backend.log
+          kill $PID || true
+          exit 1
