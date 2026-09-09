@@ -1,6 +1,6 @@
 import { Application, Container, Graphics } from 'pixi.js';
 
-const TERM_CACHE_LIMIT = 24;
+const TERM_CACHE_LIMIT = 8;
 
 export class LambdaVisualizer {
   constructor(host, onEvict = null) {
