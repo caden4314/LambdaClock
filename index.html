@@ -7,19 +7,19 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Pure Lambda Cube — Live Evaluator</title>
-<link rel="stylesheet" href="cube.css?v=2">
+<link rel="stylesheet" href="cube.css?v=3">
 </head>
 <body>
 <header>
   <h1>Pure Lambda Cube</h1>
-  <p>live β-reduction • raw terms • generated topology • exact rational rotation • no fixed math Hz</p>
+  <p>uncapped β-reduction • call-by-need graph sharing • generated topology • exact integer rotation</p>
 </header>
 <main>
   <div class="controls"><button id="toggle">Pause evaluator</button><button id="reset">Reset machine</button></div>
   <div class="grid">
     <section class="panel">
       <h2>Latest completed cube state</h2>
-      <canvas id="cubeCanvas" aria-label="Cube produced by the lambda evaluator"></canvas>
+      <canvas id="cubeCanvas" aria-label="Cube produced by the pure lambda evaluator"></canvas>
       <div class="meta">
         <div><span>completed frame</span><strong id="frameValue">0</strong></div>
         <div><span>generated vertices</span><strong id="vertexValue">…</strong></div>
@@ -30,15 +30,21 @@
     <section class="panel evaluator-panel">
       <h2>Live lambda evaluator</h2>
       <div id="lambdaStage" class="lambda-stage"></div>
-      <div class="meta evaluator-meta"><div><span>machine</span><strong id="exactValue">starting…</strong></div></div>
+      <div class="meta evaluator-meta">
+        <div><span>phase</span><strong id="phaseValue">starting…</strong></div>
+        <div><span>β reductions</span><strong id="betaValue">0</strong></div>
+        <div><span>β rate</span><strong id="rateValue">0 β/s</strong></div>
+        <div><span>active control nodes</span><strong id="nodesValue">0</strong></div>
+      </div>
+      <div class="meta evaluator-meta"><div><span>exact lambda state</span><strong id="exactValue">starting…</strong></div></div>
     </section>
     <section class="panel wide">
-      <h2>Raw current term</h2>
+      <h2>Reducer state</h2>
       <div id="termText" class="term raw-term"></div>
-      <p class="note">This is the evaluator's current De Bruijn term after the most recent β-reduction. It is not a normalized-result visualization or a telemetry surrogate. JavaScript supplies only the reducer, decoder, projection and pixels; cube construction, topology, binary arithmetic and 3-D rotation are closed lambda terms.</p>
+      <p class="note">The evaluator has no fixed math clock. It performs β-reductions continuously and only yields briefly so the browser can paint. The line field comes directly from the active De Bruijn control term; its lower strip shows the actual argument/update stack and environment cache used for graph sharing. JavaScript is only the evaluator and display boundary—the cube construction, generated topology, signed binary arithmetic, rotation and scale are lambda terms.</p>
     </section>
   </div>
 </main>
-<script src="live2.js?v=2"></script>
+<script type="module" src="cube-live.js?v=3"></script>
 </body>
 </html>
