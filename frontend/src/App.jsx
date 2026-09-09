@@ -1,9 +1,11 @@
-import {batch,createSignal,onCleanup,onMount} from 'solid-js';
+import {batch,createSignal,onCleanup,onMount,Show} from 'solid-js';
 import AnimatedDigit from './AnimatedDigit.jsx';
 import LambdaDisplay from './LambdaDisplay.jsx';
 import SideMenu from './SideMenu.jsx';
+import LambdaProject,{PROJECTS} from './Projects.jsx';
 
 const two=n=>String(n).padStart(2,'0');
+const validProject=id=>PROJECTS.some(project=>project.id===id);
 
 function readTime(){
   const now=new Date();
@@ -23,30 +25,17 @@ function readTime(){
 function makeTransition(previous,next,seq){
   const changed=[];
   for(let i=5;i>=0;i--) if(previous.digits[i]!==next.digits[i]) changed.push(i);
-  const delays={};
-  changed.forEach((index,order)=>delays[index]=order*78);
+  const delays={};changed.forEach((index,order)=>delays[index]=order*78);
   const special=previous.period!==next.period?(next.period==='AM'?'midnight':'noon'):null;
-  const reduction=!special&&changed.length===1&&changed[0]===5&&
-    previous.digits[5]<9&&next.digits[5]===previous.digits[5]+1;
-  return {
-    seq,changed,delays,special,reduction,
-    previousDigits:[...previous.digits],nextDigits:[...next.digits],
-    previousDisplay:[...previous.displayDigits],nextDisplay:[...next.displayDigits],
-    periodChanged:previous.period!==next.period
-  };
+  const reduction=!special&&changed.length===1&&changed[0]===5&&previous.digits[5]<9&&next.digits[5]===previous.digits[5]+1;
+  return {seq,changed,delays,special,reduction,previousDigits:[...previous.digits],nextDigits:[...next.digits],previousDisplay:[...previous.displayDigits],nextDisplay:[...next.displayDigits],periodChanged:previous.period!==next.period};
 }
-
-function idleTransition(time){
-  return {
-    seq:0,changed:[],delays:{},special:null,reduction:false,
-    previousDigits:[...time.digits],nextDigits:[...time.digits],
-    previousDisplay:[...time.displayDigits],nextDisplay:[...time.displayDigits],
-    periodChanged:false
-  };
-}
+function idleTransition(time){return {seq:0,changed:[],delays:{},special:null,reduction:false,previousDigits:[...time.digits],nextDigits:[...time.digits],previousDisplay:[...time.displayDigits],nextDisplay:[...time.displayDigits],periodChanged:false}}
 
 export default function App(){
   const first=readTime();
+  const hash=globalThis.location?.hash?.slice(1)||'clock';
+  const [selected,setSelected]=createSignal(validProject(hash)?hash:'clock');
   const [time,setTime]=createSignal(first);
   const [transition,setTransition]=createSignal(idleTransition(first));
   const [menuOpen,setMenuOpen]=createSignal(false);
@@ -54,33 +43,19 @@ export default function App(){
 
   function scheduleTick(){
     const delay=1000-(Date.now()%1000)+12;
-    timer=setTimeout(()=>{
-      const previous=time();
-      const next=readTime();
-      const nextTransition=makeTransition(previous,next,++sequence);
-      batch(()=>{
-        setTransition(nextTransition);
-        setTime(next);
-      });
-      scheduleTick();
-    },delay);
+    timer=setTimeout(()=>{const previous=time(),next=readTime(),nextTransition=makeTransition(previous,next,++sequence);batch(()=>{setTransition(nextTransition);setTime(next)});scheduleTick()},delay);
   }
+  function selectProject(id){if(!validProject(id))return;setSelected(id);setMenuOpen(false);globalThis.history?.replaceState?.(null,'',`#${id}`)}
+  function onHash(){const id=globalThis.location?.hash?.slice(1);if(validProject(id))setSelected(id)}
 
-  onMount(scheduleTick);
-  onCleanup(()=>clearTimeout(timer));
+  onMount(()=>{scheduleTick();window.addEventListener('hashchange',onHash)});
+  onCleanup(()=>{clearTimeout(timer);window.removeEventListener('hashchange',onHash)});
 
   const d=i=>time().displayDigits[i];
-  const motion=i=>{
-    const t=transition();
-    const order=t.changed.indexOf(i);
-    const old=t.previousDisplay[i],next=t.nextDisplay[i];
-    const wrap=old==='9'&&next==='0';
-    const distance=t.special?1.7:wrap?1.42:order>0?1.02:.72;
-    return {seq:t.seq,delay:order<0?0:t.delays[i],distance,wrap,carry:order>0,special:t.special};
-  };
+  const motion=i=>{const t=transition(),order=t.changed.indexOf(i),old=t.previousDisplay[i],next=t.nextDisplay[i],wrap=old==='9'&&next==='0',distance=t.special?1.7:wrap?1.42:order>0?1.02:.72;return {seq:t.seq,delay:order<0?0:t.delays[i],distance,wrap,carry:order>0,special:t.special}};
 
-  return (
-    <>
+  return <>
+    <Show when={selected()==='clock'} fallback={<LambdaProject id={selected()}/>}>
       <main class={`screen${transition().special?' special-event':''}`} data-special={transition().special||''}>
         <div class="clock" aria-label={`Current local time ${time().text} ${time().period}, ${time().zone}`}>
           <span class="time-group"><AnimatedDigit value={d(0)} motion={motion(0)}/><AnimatedDigit value={d(1)} motion={motion(1)}/></span><i>:</i>
@@ -88,16 +63,9 @@ export default function App(){
           <span class="time-group"><AnimatedDigit value={d(4)} motion={motion(4)}/><AnimatedDigit value={d(5)} motion={motion(5)}/></span>
           <b class="day-period"><AnimatedDigit value={time().period[0]} motion={{seq:transition().seq,delay:transition().periodChanged?310:0,distance:1.15,special:transition().special}}/><span>M</span></b>
         </div>
-        <div class="diagrams">
-          <div class="diagram-wrap">
-            <LambdaDisplay digits={time().digits} transition={transition()}/>
-          </div>
-          <div class="period-diagram-wrap">
-            <LambdaDisplay period={time().period} transition={transition()}/>
-          </div>
-        </div>
+        <div class="diagrams"><div class="diagram-wrap"><LambdaDisplay digits={time().digits} transition={transition()}/></div><div class="period-diagram-wrap"><LambdaDisplay period={time().period} transition={transition()}/></div></div>
       </main>
-      <SideMenu open={menuOpen()} onOpenChange={setMenuOpen}/>
-    </>
-  );
+    </Show>
+    <SideMenu open={menuOpen()} onOpenChange={setMenuOpen} items={PROJECTS} selected={selected()} onSelect={selectProject}/>
+  </>;
 }
