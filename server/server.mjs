@@ -1,4 +1,4 @@
-import Fastify from 'fastify';
+﻿import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
 import { pack, unpack } from 'msgpackr';
 import { Machine, workflow } from '../lambda-machine.js';
@@ -260,7 +260,7 @@ function rawTerm(term, limit = MAX_RAW) {
       continue;
     }
     if (node.t === 'l') {
-      if (!add('λ.')) break;
+      if (!add('Î».')) break;
       stack.push({ kind: 'node', value: node.b });
       continue;
     }
@@ -270,7 +270,7 @@ function rawTerm(term, limit = MAX_RAW) {
     stack.push({ kind: 'text', value: ' ' });
     stack.push({ kind: 'node', value: node.f });
   }
-  return { text: out + (truncated ? ' …' : ''), truncated };
+  return { text: out + (truncated ? ' â€¦' : ''), truncated };
 }
 
 function reachableCells(closure, machine, limit = 256) {
@@ -347,6 +347,8 @@ function sendGeometry(client) {
 
 app.get('/health', async () => ({
   ok: true,
+  revision: process.env.LAMBDA_REVISION || 'dev',
+  transport: 'fastify-websocket-msgpack-v1',
   viewers: clients.size,
   cubeFrame: Math.max(0, cubeFrameNo),
   clock: lastClockText,
