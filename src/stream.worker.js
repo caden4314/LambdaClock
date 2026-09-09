@@ -9,6 +9,7 @@ let stateDirty = false;
 let reconnectTimer = null;
 let lastGeometryFrame = -1;
 const requestedTerms = new Set();
+const deliveredTerms = new Set();
 
 self.onmessage = (event) => {
   const msg = event.data;
@@ -22,6 +23,7 @@ self.onmessage = (event) => {
     rawCube = Boolean(msg.cube);
     send({ t: 'rawSub', clock: rawClock, cube: rawCube });
   }
+  if (msg.t === 'termEvicted') deliveredTerms.delete(msg.id);
   if (msg.t === 'control') send(msg);
 };
 
@@ -33,10 +35,13 @@ function connect() {
   socket.binaryType = 'arraybuffer';
   socket.onopen = () => {
     requestedTerms.clear();
+    deliveredTerms.clear();
     postMessage({ t: 'status', connected: true, viewers: 0 });
     send({ t: 'hello', visible, rawClock, rawCube });
   };
   socket.onclose = () => {
+    requestedTerms.clear();
+    deliveredTerms.clear();
     postMessage({ t: 'status', connected: false, viewers: 0 });
     reconnectTimer = setTimeout(connect, visible ? 1500 : 5000);
   };
@@ -57,6 +62,7 @@ function connect() {
     }
     if (msg.t === 'term') {
       requestedTerms.delete(msg.id);
+      deliveredTerms.add(msg.id);
       const segments = msg.segments instanceof Float32Array ? msg.segments : Float32Array.from(msg.segments || []);
       postMessage({ t: 'term', id: msg.id, segments }, [segments.buffer]);
       return;
@@ -73,7 +79,7 @@ function connect() {
 }
 
 function ensureTerm(id) {
-  if (id == null || requestedTerms.has(id)) return;
+  if (id == null || requestedTerms.has(id) || deliveredTerms.has(id)) return;
   requestedTerms.add(id);
   send({ t: 'needTerm', id });
 }
