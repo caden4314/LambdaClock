@@ -3,6 +3,7 @@ import { createEffect, onCleanup, onMount } from 'solid-js';
 const V=(binder,key)=>({t:'v',binder,key});
 const L=(id,body)=>({t:'l',id,body});
 const A=(id,left,right)=>({t:'a',id,left,right});
+const PROPS=['x1','y1','x2','y2'];
 
 function church(n,prefix){
   const f=prefix+':f',x=prefix+':x';
@@ -85,32 +86,122 @@ function layout(root){
   };
 }
 
+function collapsed(segment){
+  if(segment.kind===2){
+    return {...segment,y2:segment.y1};
+  }
+  if(segment.kind===1){
+    return {...segment,x2:segment.x1};
+  }
+  const mid=(segment.x1+segment.x2)/2;
+  return {...segment,x1:mid,x2:mid};
+}
+
+function spring(value,velocity,target,dt,omega){
+  const offset=value-target;
+  const b=velocity+omega*offset;
+  const e=Math.exp(-omega*dt);
+  return {
+    value:target+(offset+b*dt)*e,
+    velocity:(velocity-omega*b*dt)*e
+  };
+}
+
+function makeItem(target,now,instant=false){
+  const start=instant?target:collapsed(target);
+  const item={
+    kind:target.kind,
+    x1:start.x1,y1:start.y1,x2:start.x2,y2:start.y2,
+    a:instant?1:0,va:0,
+    vx1:0,vy1:0,vx2:0,vy2:0,
+    target:{...target},
+    removing:false,
+    geometryAt:instant?now:now+(target.kind===2?55:target.kind===1?125:165),
+    fadeAt:instant?now:now+80,
+    energy:instant?0:1
+  };
+  return item;
+}
+
+function removalTarget(item){
+  const t={...item.target};
+  if(item.kind===2){
+    t.y2=t.y1;
+  }else if(item.kind===1){
+    t.x2=t.x1;
+  }else{
+    const mid=(t.x1+t.x2)/2;
+    t.x1=mid;t.x2=mid;
+  }
+  return t;
+}
+
 export default function LambdaDisplay(props){
-  let canvas;
+  let canvas,ctx,observer;
   const live=new Map();
-  let ctx=null,raf=0,last=performance.now();
-  let gridW=3,gridH=3;
+  const view={w:3,h:3,vw:0,vh:0,targetW:3,targetH:3};
+  let raf=0,last=performance.now(),mounted=false;
+  let cssW=1,cssH=1,dpr=1;
+  let first=true;
+  const reduced=()=>globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+  function ensureAnimation(){
+    if(!mounted||raf)return;
+    last=performance.now();
+    raf=requestAnimationFrame(frame);
+  }
 
   function setTarget(digits){
     const diagram=layout(timeTerm(digits));
-    gridW=diagram.gridW;
-    gridH=diagram.gridH;
-    const next=new Map(diagram.segments.map(s=>[s.id,s]));
+    const now=performance.now();
+    const instant=first||reduced();
+    view.targetW=diagram.gridW;
+    view.targetH=diagram.gridH;
+    if(first){
+      view.w=diagram.gridW;
+      view.h=diagram.gridH;
+      first=false;
+    }
 
+    const next=new Map(diagram.segments.map(s=>[s.id,s]));
     for(const [id,target] of next){
       let item=live.get(id);
       if(!item){
-        const mx=(target.x1+target.x2)/2,my=(target.y1+target.y2)/2;
-        item={x1:mx,y1:my,x2:mx,y2:my,a:0,target:{...target,a:1},kind:target.kind};
+        item=makeItem(target,now,instant);
         live.set(id,item);
       }else{
-        item.target={...target,a:1};
+        const moved=PROPS.some(p=>Math.abs(item.target[p]-target[p])>.001);
+        item.target={...target};
         item.kind=target.kind;
+        item.removing=false;
+        item.geometryAt=now;
+        item.fadeAt=now;
+        if(moved)item.energy=1;
       }
     }
+
     for(const [id,item] of live){
-      if(!next.has(id)) item.target={...item.target,a:0};
+      if(next.has(id))continue;
+      if(!item.removing){
+        item.removing=true;
+        item.target=removalTarget(item);
+        item.geometryAt=now;
+        item.fadeAt=now+130;
+        item.energy=1;
+      }
     }
+
+    if(reduced()){
+      for(const [id,item] of [...live]){
+        if(item.removing){live.delete(id);continue;}
+        for(const p of PROPS){item[p]=item.target[p];item['v'+p]=0;}
+        item.a=1;item.va=0;item.energy=0;
+      }
+      view.w=view.targetW;view.h=view.targetH;view.vw=0;view.vh=0;
+      draw();
+      return;
+    }
+    ensureAnimation();
   }
 
   createEffect(()=>setTarget(props.digits));
@@ -118,49 +209,121 @@ export default function LambdaDisplay(props){
   function resize(){
     if(!canvas)return;
     const r=canvas.getBoundingClientRect();
-    const dpr=Math.min(2,devicePixelRatio||1);
-    const w=Math.max(2,Math.round(r.width*dpr));
-    const h=Math.max(2,Math.round(r.height*dpr));
+    cssW=Math.max(1,r.width);
+    cssH=Math.max(1,r.height);
+    dpr=Math.min(3,Math.max(1,globalThis.devicePixelRatio||1));
+    const w=Math.max(2,Math.round(cssW*dpr));
+    const h=Math.max(2,Math.round(cssH*dpr));
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
     ctx=canvas.getContext('2d');
     ctx.setTransform(dpr,0,0,dpr,0,0);
+    ensureAnimation();
   }
 
-  function frame(now){
-    resize();
-    const dt=Math.min(.05,(now-last)/1000);last=now;
-    const k=1-Math.exp(-dt*15);
-    const w=canvas.clientWidth,h=canvas.clientHeight;
-    ctx.clearRect(0,0,w,h);
+  function snap(value,lineWidth){
+    const physicalWidth=Math.max(1,Math.round(lineWidth*dpr));
+    const half=physicalWidth%2?0.5:0;
+    return (Math.round(value*dpr-half)+half)/dpr;
+  }
 
+  function drawLine(item,scale,ox,oy,stroke){
+    let x1=ox+item.x1*scale,x2=ox+item.x2*scale;
+    let y1=oy+item.y1*scale,y2=oy+item.y2*scale;
+
+    if(item.kind===2){
+      const x=(x1+x2)/2;x1=x;x2=x;
+    }else{
+      const y=(y1+y2)/2;y1=y;y2=y;
+    }
+
+    const speed=Math.abs(item.vx1)+Math.abs(item.vx2)+Math.abs(item.vy1)+Math.abs(item.vy2);
+    const settled=speed<.012&&item.energy<.018;
+    if(settled){
+      x1=snap(x1,stroke);x2=snap(x2,stroke);
+      y1=snap(y1,stroke);y2=snap(y2,stroke);
+    }
+
+    const alpha=Math.max(0,Math.min(1,item.a));
+    if(alpha<=.002)return;
+
+    if(item.energy>.025){
+      ctx.strokeStyle=`rgba(255,255,255,${alpha*item.energy*.07})`;
+      ctx.lineWidth=stroke+Math.min(3,1.5+item.energy*1.5);
+      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    }
+
+    ctx.strokeStyle=`rgba(255,255,255,${alpha})`;
+    ctx.lineWidth=stroke;
+    ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  }
+
+  function draw(){
+    if(!ctx)return;
+    ctx.clearRect(0,0,cssW,cssH);
     const pad=10;
-    const scale=Math.max(.5,Math.min((w-pad*2)/gridW,(h-pad*2)/gridH));
-    const drawW=gridW*scale,drawH=gridH*scale;
-    const ox=(w-drawW)/2,oy=(h-drawH)/2;
-    const stroke=Math.max(1.2,Math.min(5,scale*.82));
-
+    const scale=Math.max(.5,Math.min((cssW-pad*2)/Math.max(1,view.w),(cssH-pad*2)/Math.max(1,view.h)));
+    const drawW=view.w*scale,drawH=view.h*scale;
+    const ox=(cssW-drawW)/2,oy=(cssH-drawH)/2;
+    const stroke=Math.max(1.05,Math.min(3.7,scale*.58));
     ctx.lineCap='butt';
     ctx.lineJoin='miter';
 
-    for(const [id,item] of [...live]){
-      for(const p of ['x1','y1','x2','y2','a']) item[p]+=(item.target[p]-item[p])*k;
-      if(item.target.a===0&&item.a<.01){live.delete(id);continue;}
-
-      const alpha=Math.max(0,Math.min(1,item.a));
-      const x1=ox+item.x1*scale,x2=ox+item.x2*scale;
-      const y1=oy+item.y1*scale,y2=oy+item.y2*scale;
-      ctx.strokeStyle=`rgba(255,255,255,${alpha})`;
-      ctx.lineWidth=stroke;
-      ctx.beginPath();
-      ctx.moveTo(x1,y1);
-      ctx.lineTo(x2,y2);
-      ctx.stroke();
-    }
-
-    raf=requestAnimationFrame(frame);
+    const ordered=[...live.values()].sort((a,b)=>a.energy-b.energy);
+    for(const item of ordered)drawLine(item,scale,ox,oy,stroke);
   }
 
-  onMount(()=>{resize();last=performance.now();raf=requestAnimationFrame(frame);});
-  onCleanup(()=>cancelAnimationFrame(raf));
+  function frame(now){
+    raf=0;
+    const dt=Math.min(.033,Math.max(.001,(now-last)/1000));
+    last=now;
+    let active=false;
+
+    const vw=spring(view.w,view.vw,view.targetW,dt,9.5);
+    const vh=spring(view.h,view.vh,view.targetH,dt,9.5);
+    view.w=vw.value;view.vw=vw.velocity;
+    view.h=vh.value;view.vh=vh.velocity;
+    if(Math.abs(view.w-view.targetW)>.002||Math.abs(view.vw)>.01||Math.abs(view.h-view.targetH)>.002||Math.abs(view.vh)>.01)active=true;
+
+    for(const [id,item] of [...live]){
+      const geometryReady=now>=item.geometryAt;
+      if(geometryReady){
+        for(const p of PROPS){
+          const next=spring(item[p],item['v'+p],item.target[p],dt,17);
+          item[p]=next.value;item['v'+p]=next.velocity;
+          if(Math.abs(item[p]-item.target[p])>.0015||Math.abs(item['v'+p])>.012)active=true;
+        }
+      }else active=true;
+
+      const wantedAlpha=item.removing?(now>=item.fadeAt?0:1):(now>=item.fadeAt?1:0);
+      const alpha=spring(item.a,item.va,wantedAlpha,dt,13);
+      item.a=alpha.value;item.va=alpha.velocity;
+      if(Math.abs(item.a-wantedAlpha)>.002||Math.abs(item.va)>.01)active=true;
+
+      item.energy*=Math.exp(-dt*5.4);
+      if(item.energy>.012)active=true;
+
+      if(item.removing&&item.a<.003&&Math.abs(item.va)<.008){
+        live.delete(id);
+      }
+    }
+
+    draw();
+    if(active)raf=requestAnimationFrame(frame);
+  }
+
+  onMount(()=>{
+    mounted=true;
+    resize();
+    observer=new ResizeObserver(resize);
+    observer.observe(canvas);
+    ensureAnimation();
+  });
+
+  onCleanup(()=>{
+    mounted=false;
+    observer?.disconnect();
+    if(raf)cancelAnimationFrame(raf);
+  });
+
   return <canvas ref={canvas} class="lambda-display" aria-label="Animated Tromp lambda diagram of the current time"/>;
 }
