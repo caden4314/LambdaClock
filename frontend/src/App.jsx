@@ -15,11 +15,7 @@ function readTime(){
   const digits=`${hour}${minute}${second}`.split('').map(Number);
   const displayDigits=`${String(hour).padStart(2,' ')}${minute}${second}`.split('');
   const zone=Intl.DateTimeFormat().resolvedOptions().timeZone||'local time';
-  return {hour:String(hour),minute,second,period,text,digits,displayDigits,zone};
-}
-
-function TimeGroup(props){
-  return <span class="time-group">{props.values.map((value,index)=><AnimatedDigit value={value} key={index}/>)}</span>;
+  return {period,text,digits,displayDigits,zone};
 }
 
 export default function App(){
@@ -37,14 +33,14 @@ export default function App(){
   onMount(scheduleTick);
   onCleanup(()=>clearTimeout(timer));
 
-  const chars=()=>time().displayDigits;
+  const d=i=>time().displayDigits[i];
 
   return (
     <main class="screen">
       <div class="clock" aria-label={`Current local time ${time().text} ${time().period}, ${time().zone}`}>
-        <TimeGroup values={chars().slice(0,2)}/><i>:</i>
-        <TimeGroup values={chars().slice(2,4)}/><i>:</i>
-        <TimeGroup values={chars().slice(4,6)}/>
+        <span class="time-group"><AnimatedDigit value={d(0)}/><AnimatedDigit value={d(1)}/></span><i>:</i>
+        <span class="time-group"><AnimatedDigit value={d(2)}/><AnimatedDigit value={d(3)}/></span><i>:</i>
+        <span class="time-group"><AnimatedDigit value={d(4)}/><AnimatedDigit value={d(5)}/></span>
         <b class="day-period"><AnimatedDigit value={time().period[0]}/><span>M</span></b>
       </div>
       <div class="diagrams">
