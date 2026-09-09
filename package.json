@@ -1,0 +1,11 @@
+{
+  "name": "lambda-clock-cube",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "backend": "node server/server.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
