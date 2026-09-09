@@ -1,6 +1,7 @@
 import {batch,createSignal,onCleanup,onMount} from 'solid-js';
 import AnimatedDigit from './AnimatedDigit.jsx';
 import LambdaDisplay from './LambdaDisplay.jsx';
+import SideMenu from './SideMenu.jsx';
 
 const two=n=>String(n).padStart(2,'0');
 
@@ -48,6 +49,7 @@ export default function App(){
   const first=readTime();
   const [time,setTime]=createSignal(first);
   const [transition,setTransition]=createSignal(idleTransition(first));
+  const [menuOpen,setMenuOpen]=createSignal(false);
   let timer,sequence=0;
 
   function scheduleTick(){
@@ -78,21 +80,24 @@ export default function App(){
   };
 
   return (
-    <main class={`screen${transition().special?' special-event':''}`} data-special={transition().special||''}>
-      <div class="clock" aria-label={`Current local time ${time().text} ${time().period}, ${time().zone}`}>
-        <span class="time-group"><AnimatedDigit value={d(0)} motion={motion(0)}/><AnimatedDigit value={d(1)} motion={motion(1)}/></span><i>:</i>
-        <span class="time-group"><AnimatedDigit value={d(2)} motion={motion(2)}/><AnimatedDigit value={d(3)} motion={motion(3)}/></span><i>:</i>
-        <span class="time-group"><AnimatedDigit value={d(4)} motion={motion(4)}/><AnimatedDigit value={d(5)} motion={motion(5)}/></span>
-        <b class="day-period"><AnimatedDigit value={time().period[0]} motion={{seq:transition().seq,delay:transition().periodChanged?310:0,distance:1.15,special:transition().special}}/><span>M</span></b>
-      </div>
-      <div class="diagrams">
-        <div class="diagram-wrap">
-          <LambdaDisplay digits={time().digits} transition={transition()}/>
+    <>
+      <main class={`screen${transition().special?' special-event':''}`} data-special={transition().special||''}>
+        <div class="clock" aria-label={`Current local time ${time().text} ${time().period}, ${time().zone}`}>
+          <span class="time-group"><AnimatedDigit value={d(0)} motion={motion(0)}/><AnimatedDigit value={d(1)} motion={motion(1)}/></span><i>:</i>
+          <span class="time-group"><AnimatedDigit value={d(2)} motion={motion(2)}/><AnimatedDigit value={d(3)} motion={motion(3)}/></span><i>:</i>
+          <span class="time-group"><AnimatedDigit value={d(4)} motion={motion(4)}/><AnimatedDigit value={d(5)} motion={motion(5)}/></span>
+          <b class="day-period"><AnimatedDigit value={time().period[0]} motion={{seq:transition().seq,delay:transition().periodChanged?310:0,distance:1.15,special:transition().special}}/><span>M</span></b>
         </div>
-        <div class="period-diagram-wrap">
-          <LambdaDisplay period={time().period} transition={transition()}/>
+        <div class="diagrams">
+          <div class="diagram-wrap">
+            <LambdaDisplay digits={time().digits} transition={transition()}/>
+          </div>
+          <div class="period-diagram-wrap">
+            <LambdaDisplay period={time().period} transition={transition()}/>
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+      <SideMenu open={menuOpen()} onOpenChange={setMenuOpen}/>
+    </>
   );
 }
