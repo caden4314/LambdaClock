@@ -86,6 +86,19 @@ function binaryList(bits){
   return tail;
 }
 
+function boundedChurch(value,p,max=9){
+  const n=Math.max(0,Math.min(max,Math.round(Number(value)||0)));
+  return church(n,p);
+}
+function waveFunction(mode){
+  const phase='wave:fn:phase',x='wave:fn:x';
+  const pv=k=>V(phase,`wave:fn:p${k}`),xv=k=>V(x,`wave:fn:x${k}`);
+  const sin=(p,arg)=>apply(p,free('SIN',`${p}:sin`),arg);
+  if(mode==='fold') return L(phase,L(x,apply('wave:fold:add',free('ADD','wave:fold:addf'),sin('wave:fold:a',apply('wave:fold:pa',free('ADD','wave:fold:padd'),pv('a'),xv('a'))),sin('wave:fold:b',apply('wave:fold:mul',free('MUL','wave:fold:mulf'),church(3,'wave:fold:three'),xv('b'))))));
+  if(mode==='interference') return L(phase,L(x,apply('wave:int:add',free('ADD','wave:int:addf'),sin('wave:int:a',apply('wave:int:pa',free('ADD','wave:int:padd'),pv('a'),xv('a'))),sin('wave:int:b',apply('wave:int:pb',free('ADD','wave:int:padd2'),apply('wave:int:mul',free('MUL','wave:int:mulf'),church(2,'wave:int:two'),xv('b')),pv('b'))))));
+  return L(phase,L(x,sin('wave:sine',apply('wave:sine:add',free('ADD','wave:sine:addf'),pv('s'),apply('wave:sine:mul',free('MUL','wave:sine:mulf'),free('k','wave:sine:k'),xv('s'))))));
+}
+
 function termFor(props){
   const kind=props.kind;
   if(kind==='church')return church(props.value,'counter:n');
@@ -93,16 +106,30 @@ function termFor(props){
   if(kind==='arithmetic')return apply('arith:eval',props.op==='MUL'?mulOp('arith:mul'):addOp('arith:add'),church(props.a,'arith:a'),church(props.b,'arith:b'));
   if(kind==='fibonacci')return apply('fib:iter',church(Math.min(14,props.n||0),'fib:n'),free('STEP','fib:step'),pair(church(0,'fib:zero'),church(1,'fib:one'),'fib:pair'));
   if(kind==='wave'){
-    const phase='wave:phase',x='wave:x';
-    return L(phase,L(x,apply('wave:sin',free('SIN','wave:sin'),apply('wave:add',free('ADD','wave:add'),V(phase,'wave:phasev'),apply('wave:mul',free('MUL','wave:mul'),free('k','wave:k'),V(x,'wave:xv'))))));
+    const state=pair(boundedChurch(props.phase,'wave:state:phase',7),pair(boundedChurch(props.freq,'wave:state:freq',6),boundedChurch((Number(props.amp)||55)/12,'wave:state:amp',8),'wave:state:fa'),'wave:state');
+    return pair(waveFunction(props.mode),state,'wave:live');
   }
-  if(kind==='binary')return binaryList(props.bits||[]);
-  if(kind==='combinator')return combinator(props.combinator,props.step||0);
-  if(kind==='recursion')return apply('rec:run',yOp('rec:Y'),free(props.mode==='fib'?'FIB':'FACT','rec:function'),church(props.n||1,'rec:n'));
-  if(kind==='automata')return apply('auto:xor',boolOp('XOR','auto:op'),bool(!!props.left,'auto:left'),bool(!!props.right,'auto:right'));
-  if(kind==='orbit')return apply('orbit:run',free('ITER','orbit:iter'),free('F','orbit:f'),free('seed','orbit:seed'));
-  if(kind==='collatz')return apply('collatz:run',yOp('collatz:Y'),free('COLLATZ','collatz:f'),free(`N${props.value??0}`,'collatz:n'));
-  if(kind==='oscillator')return apply('osc:run',yOp('osc:Y'),free('OSC','osc:f'),free('state','osc:state'));
+  if(kind==='binary')return pair(binaryList(props.bits||[]),boundedChurch((Number(props.value)||0)%10,'bits:value'),'bits:live');
+  if(kind==='combinator'){const code=props.combinator==='S'?2:props.combinator==='K'?1:0;return pair(combinator(props.combinator,props.step||0),pair(boundedChurch(code,'combo:kind',2),boundedChurch(props.step,'combo:step',4),'combo:state'),'combo:live');}
+  if(kind==='recursion')return pair(pair(boundedChurch(props.n||1,'rec:state:n',8),bool(props.mode==='fib','rec:mode'),'rec:state'),apply('rec:run',yOp('rec:Y'),free(props.mode==='fib'?'FIB':'FACT','rec:function')),'rec:live');
+  if(kind==='automata'){
+    const evalTerm=apply('auto:xor',boolOp('XOR','auto:op'),bool(!!props.left,'auto:left'),bool(!!props.right,'auto:right'));
+    return pair(evalTerm,pair(boundedChurch((Number(props.generation)||0)%10,'auto:gen'),boundedChurch((Number(props.population)||0)%10,'auto:pop'),'auto:state'),'auto:live');
+  }
+  if(kind==='orbit'){
+    const core=apply('orbit:run',free('ITER','orbit:iter'),free('F','orbit:f'),free('seed','orbit:seed'));
+    const state=pair(boundedChurch((Number(props.step)||0)%10,'orbit:step'),pair(boundedChurch((Number(props.x)||0)*9,'orbit:x'),boundedChurch(((Number(props.rate)||2.8)-2.8)*7.5,'orbit:r'),'orbit:xr'),'orbit:state');
+    return pair(core,state,'orbit:live');
+  }
+  if(kind==='collatz'){
+    const value=Math.max(0,Math.round(Number(props.value)||0));
+    return pair(apply('collatz:run',yOp('collatz:Y'),free('COLLATZ','collatz:f')),pair(boundedChurch(value%10,'collatz:digit'),bool(value%2===0,'collatz:parity'),'collatz:state'),'collatz:live');
+  }
+  if(kind==='oscillator'){
+    const state=boundedChurch(props.state,'osc:state',9);
+    const fb=boundedChurch((Number(props.feedback)||0)*7.2,'osc:feedback',9);
+    return pair(apply('osc:run',yOp('osc:Y'),free('OSC','osc:f')),pair(state,fb,'osc:statepair'),'osc:live');
+  }
   return iOp('fallback:I');
 }
 

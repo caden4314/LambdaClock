@@ -22,7 +22,7 @@ export function LambdaOrbit(){
   return <Shell title="Lambda Orbit" subtitle="Repeated function application moving from stability into chaos." lambda="ORBIT ≡ ITER F seed">
     <Metrics items={[["step",step()],["x",x().toFixed(6)],["r",rate().toFixed(2)]]}/>
     <svg class="loop-plot" viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="50" x2="100" y2="50"/><polyline points={points()}/><circle cx="100" cy={96-x()*88} r="1.4"/></svg>
-    <ProjectLambdaPanel kind="orbit" expression={`ITER · F(r=${rate().toFixed(2)}) · seed → step ${step()}`}/>
+    <ProjectLambdaPanel kind="orbit" step={step()} x={x()} rate={rate()} expression={`ITER · F(r=${rate().toFixed(2)}) · seed → step ${step()}`}/>
     <div class="split-controls"><Range label="chaos / r" min={2.8} max={4} step={.01} value={rate()} onInput={setRate}/><Range label="loop ms" min={45} max={700} step={5} value={delay()} onInput={setDelay}/></div>
     <div class="lab-controls centered"><Button active={running()} onClick={()=>setRunning(v=>!v)}>{running()?'pause':'run'}</Button><Button onClick={advance}>step</Button><Button onClick={reset}>reset</Button></div>
   </Shell>;
@@ -51,7 +51,7 @@ export function CollatzLoop(){
 
 export function FeedbackOscillator(){
   const [feedback,setFeedback]=createSignal(.88),[drive,setDrive]=createSignal(1.35),[running,setRunning]=createSignal(true),[value,setValue]=createSignal(.1);
-  const [trail,setTrail]=createSignal(Array.from({length:90},()=>0));let raf=0,last=0,phase=0;
+  const [trail,setTrail]=createSignal(Array.from({length:90},()=>0));const lambdaState=createMemo(()=>Math.max(0,Math.min(9,Math.round((value()+1)*4.5))));let raf=0,last=0,phase=0;
   function frame(now){const dt=Math.min(.035,(now-last||16)/1000);last=now;if(running()){
     phase+=dt*drive()*3.2;setValue(v=>{const next=Math.tanh(feedback()*1.7*v+Math.sin(phase)*.62);setTrail(t=>[...t,next].slice(-90));return next});
   }raf=requestAnimationFrame(frame)}
@@ -61,7 +61,7 @@ export function FeedbackOscillator(){
   return <Shell title="Feedback Oscillator" subtitle="The previous output is fed into the next evaluation, creating a live recursive state." lambda="OSC ≡ Y (λself.λx.STEP x (self x))">
     <Metrics items={[["state",value().toFixed(4)],["feedback",feedback().toFixed(2)],["drive",drive().toFixed(2)]]}/>
     <svg class="loop-plot oscillator" viewBox="0 0 100 100" preserveAspectRatio="none"><line x1="0" y1="50" x2="100" y2="50"/><polyline points={points()}/></svg>
-    <ProjectLambdaPanel kind="oscillator" expression={`Y · OSC(feedback=${feedback().toFixed(2)}) · state`}/>
+    <ProjectLambdaPanel kind="oscillator" state={lambdaState()} feedback={feedback()} drive={drive()} expression={`Y · OSC(feedback=${feedback().toFixed(2)}) · state=${value().toFixed(4)}`}/>
     <div class="split-controls"><Range label="feedback" min={0} max={1.25} step={.01} value={feedback()} onInput={setFeedback}/><Range label="drive" min={.2} max={2.5} step={.05} value={drive()} onInput={setDrive}/></div>
     <div class="lab-controls centered"><Button active={running()} onClick={()=>setRunning(v=>!v)}>{running()?'pause':'run'}</Button><Button onClick={reset}>reset</Button></div>
   </Shell>;

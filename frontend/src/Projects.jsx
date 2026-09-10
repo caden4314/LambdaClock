@@ -73,14 +73,14 @@ function Fibonacci(){
   </Shell>;
 }
 function Wave(){
-  const [amp,setAmp]=createSignal(55),[freq,setFreq]=createSignal(2),[speed,setSpeed]=createSignal(1),[running,setRunning]=createSignal(true),[mode,setMode]=createSignal('sine');let canvas,raf=0,ctx,w=1,h=1,ro,last=0,phase=0;
+  const [amp,setAmp]=createSignal(55),[freq,setFreq]=createSignal(2),[speed,setSpeed]=createSignal(1),[running,setRunning]=createSignal(true),[mode,setMode]=createSignal('sine'),[lambdaPhase,setLambdaPhase]=createSignal(0);let canvas,raf=0,ctx,w=1,h=1,ro,last=0,phase=0;
   function resize(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);w=r.width;h=r.height;canvas.width=Math.max(2,Math.round(w*d));canvas.height=Math.max(2,Math.round(h*d));ctx=canvas.getContext('2d');ctx.setTransform(d,0,0,d,0,0)}
-  function draw(now){const dt=Math.min(.04,(now-last||16)/1000);last=now;if(running())phase+=dt*speed()*2.2;if(!ctx){raf=requestAnimationFrame(draw);return}ctx.clearRect(0,0,w,h);ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();for(let x=0;x<=w;x+=2){const p=x/Math.max(1,w),q=p*Math.PI*2*freq();let v=Math.sin(q+phase);if(mode()==='fold')v=.72*v+.28*Math.sin(q*3-phase*.7);if(mode()==='interference')v=.5*(Math.sin(q+phase)+Math.sin(q*1.72-phase*1.1));const y=h/2-v*amp();if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.stroke();raf=requestAnimationFrame(draw)}
+  function draw(now){const dt=Math.min(.04,(now-last||16)/1000);last=now;if(running()){phase+=dt*speed()*2.2;setLambdaPhase(Math.floor((((phase%(Math.PI*2))+(Math.PI*2))%(Math.PI*2))/(Math.PI*2)*8));}if(!ctx){raf=requestAnimationFrame(draw);return}ctx.clearRect(0,0,w,h);ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,h/2);ctx.lineTo(w,h/2);ctx.stroke();ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.beginPath();for(let x=0;x<=w;x+=2){const p=x/Math.max(1,w),q=p*Math.PI*2*freq();let v=Math.sin(q+phase);if(mode()==='fold')v=.72*v+.28*Math.sin(q*3-phase*.7);if(mode()==='interference')v=.5*(Math.sin(q+phase)+Math.sin(q*1.72-phase*1.1));const y=h/2-v*amp();if(x===0)ctx.moveTo(x,y);else ctx.lineTo(x,y)}ctx.stroke();raf=requestAnimationFrame(draw)}
   onMount(()=>{ro=new ResizeObserver(resize);ro.observe(canvas);resize();raf=requestAnimationFrame(draw)});onCleanup(()=>{ro?.disconnect();cancelAnimationFrame(raf)});
   const expr=()=>mode()==='sine'?'λp.λx.SIN (ADD p (MUL k x))':mode()==='fold'?'λp.λx.ADD (SIN x) (SIN (MUL 3 x))':'λp.λx.ADD (SIN x) (SIN (MUL 1.72 x))';
   return <Shell title="Wave" subtitle="Compose several animated functions and keep the Lambda term visible beside the motion." lambda="W ≡ λphase.λx.wave phase x">
-    <Metrics items={[["mode",mode()],["frequency",freq()],["state",running()?"running":"paused"]]}/><canvas class="wave-canvas" ref={canvas}/><ProjectLambdaPanel kind="wave" expression={expr()}/>
-    <div class="lab-controls centered"><For each={['sine','fold','interference']}>{m=><Button active={mode()===m} onClick={()=>setMode(m)}>{m}</Button>}</For><Button active={running()} onClick={()=>setRunning(v=>!v)}>{running()?'pause':'run'}</Button><Button onClick={()=>phase=0}>reset phase</Button></div>
+    <Metrics items={[["mode",mode()],["frequency",freq()],["state",running()?"running":"paused"]]}/><canvas class="wave-canvas" ref={canvas}/><ProjectLambdaPanel kind="wave" mode={mode()} phase={lambdaPhase()} freq={freq()} amp={amp()} expression={expr()}/>
+    <div class="lab-controls centered"><For each={['sine','fold','interference']}>{m=><Button active={mode()===m} onClick={()=>setMode(m)}>{m}</Button>}</For><Button active={running()} onClick={()=>setRunning(v=>!v)}>{running()?'pause':'run'}</Button><Button onClick={()=>{phase=0;setLambdaPhase(0)}}>reset phase</Button></div>
     <div class="split-controls three"><Range label="amplitude" min={12} max={95} value={amp()} onInput={setAmp}/><Range label="frequency" min={1} max={6} value={freq()} onInput={setFreq}/><Range label="speed" min={0} max={3} step={.25} value={speed()} onInput={setSpeed}/></div>
   </Shell>;
 }
@@ -89,7 +89,7 @@ function Binary(){
   function step(){setValue(v=>(v+direction()+64)%64)} function reset(){setValue(0);setDirection(1)} function toggle(i){const mask=1<<(5-i);setValue(v=>v^mask)} useLoop(running,delay,step);
   return <Shell title="Binary" subtitle="A six-bit list of Church booleans with a looping counter and reversible direction." lambda="BITS ≡ CONS TRUE / FALSE">
     <Metrics items={[["decimal",value()],["binary",bits().join('')],["direction",direction()>0?'up':'down']]}/><div class="bit-row"><For each={bits()}>{(bit,i)=><button class={`bit${bit?' on':''}`} onClick={()=>toggle(i())}><small>2^{5-i()}</small><b>{bit}</b><code>{bit?'T':'F'}</code></button>}</For></div>
-    <ProjectLambdaPanel kind="binary" bits={bits()} expression={`CONS ${bits().map(bit=>bit?'TRUE':'FALSE').join(' · ')} · NIL`}/>
+    <ProjectLambdaPanel kind="binary" bits={bits()} value={value()} expression={`CONS ${bits().map(bit=>bit?'TRUE':'FALSE').join(' · ')} · NIL`}/>
     <div class="lab-controls centered"><Button active={running()} onClick={()=>setRunning(v=>!v)}>{running()?'pause':'loop'}</Button><Button onClick={step}>step</Button><Button active={direction()<0} onClick={()=>setDirection(v=>-v)}>reverse</Button><Button onClick={reset}>reset</Button></div><Range label="loop ms" min={50} max={700} step={10} value={delay()} onInput={setDelay}/>
   </Shell>;
 }
@@ -119,7 +119,7 @@ function Automata(){
   function step(){setRows(old=>[...old,nextRule90(old[old.length-1])].slice(-24));setGeneration(v=>v+1)} function reset(row=centered()){setRows([row]);setGeneration(0)} function random(){reset(Array.from({length:size},()=>Math.random()>.72?1:0))} useLoop(running,delay,step);
   return <Shell title="Cellular Automata" subtitle="A continuously evolving Rule 90 system where every cell is Church XOR." lambda="XOR ≡ λp.λq.p (NOT q) q">
     <Metrics items={[["generation",generation()],["rule",90],["loop",running()?"running":"paused"]]}/><div class="automata-grid" style={{'grid-template-columns':`repeat(${size},1fr)`}}><For each={rows()}>{row=><For each={row}>{cell=><i class={cell?'on':''}/>}</For>}</For></div>
-    <ProjectLambdaPanel kind="automata" left={sample().left} right={sample().right} expression={`XOR · ${sample().left?'TRUE':'FALSE'} · ${sample().right?'TRUE':'FALSE'} → ${sample().out?'TRUE':'FALSE'}`}/>
+    <ProjectLambdaPanel kind="automata" left={sample().left} right={sample().right} generation={generation()} population={rows()[rows().length-1].reduce((sum,cell)=>sum+cell,0)} expression={`XOR · ${sample().left?'TRUE':'FALSE'} · ${sample().right?'TRUE':'FALSE'} → ${sample().out?'TRUE':'FALSE'}`}/>
     <div class="lab-controls centered"><Button active={running()} onClick={()=>setRunning(v=>!v)}>{running()?'pause':'run'}</Button><Button onClick={step}>step</Button><Button onClick={()=>reset()}>center</Button><Button onClick={random}>random</Button></div><Range label="loop ms" min={45} max={600} step={5} value={delay()} onInput={setDelay}/>
   </Shell>;
 }
