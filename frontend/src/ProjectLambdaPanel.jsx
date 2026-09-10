@@ -100,6 +100,9 @@ function termFor(props){
   if(kind==='combinator')return combinator(props.combinator,props.step||0);
   if(kind==='recursion')return apply('rec:run',yOp('rec:Y'),free(props.mode==='fib'?'FIB':'FACT','rec:function'),church(props.n||1,'rec:n'));
   if(kind==='automata')return apply('auto:xor',boolOp('XOR','auto:op'),bool(!!props.left,'auto:left'),bool(!!props.right,'auto:right'));
+  if(kind==='orbit')return apply('orbit:run',free('ITER','orbit:iter'),free('F','orbit:f'),free('seed','orbit:seed'));
+  if(kind==='collatz')return apply('collatz:run',yOp('collatz:Y'),free('COLLATZ','collatz:f'),free(`N${props.value??0}`,'collatz:n'));
+  if(kind==='oscillator')return apply('osc:run',yOp('osc:Y'),free('OSC','osc:f'),free('state','osc:state'));
   return iOp('fallback:I');
 }
 
