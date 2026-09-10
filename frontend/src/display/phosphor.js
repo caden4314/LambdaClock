@@ -4,13 +4,18 @@ const mod1=value=>((value%1)+1)%1;
 const length2=(a,b)=>Math.hypot((b?.[0]??0)-(a?.[0]??0),(b?.[1]??0)-(a?.[1]??0));
 
 export function createBeamPath(points,edges,{blankRetrace=true}={}){
-  const path=[];let cursor=null;
+  const path=[];let cursor=null,firstStart=null,runId=0,edgeIndex=0;
   for(const edge of edges||[]){
-    const a=points?.[edge[0]],b=points?.[edge[1]];if(!a||!b)continue;
-    if(cursor&&blankRetrace&&length2(cursor,a)>.25)path.push({x1:cursor[0],y1:cursor[1],x2:a[0],y2:a[1],blanked:true,intensity:0});
-    path.push({x1:a[0],y1:a[1],x2:b[0],y2:b[1],blanked:false,intensity:edge.intensity??1});
-    cursor=b;
+    const a=points?.[edge[0]],b=points?.[edge[1]],edgeKey=Math.min(edge[0],edge[1])+'-'+Math.max(edge[0],edge[1]);if(!a||!b){edgeIndex++;continue}
+    if(!firstStart)firstStart=a;
+    if(cursor&&blankRetrace&&length2(cursor,a)>.25){
+      path.push({x1:cursor[0],y1:cursor[1],x2:a[0],y2:a[1],blanked:true,intensity:0,runId:-1,edgeIndex:-1,edgeKey:null});
+      runId++;
+    }
+    path.push({x1:a[0],y1:a[1],x2:b[0],y2:b[1],blanked:false,intensity:edge.intensity??1,runId,edgeIndex,edgeKey});
+    cursor=b;edgeIndex++;
   }
+  if(blankRetrace&&cursor&&firstStart&&length2(cursor,firstStart)>.25)path.push({x1:cursor[0],y1:cursor[1],x2:firstStart[0],y2:firstStart[1],blanked:true,intensity:0,runId:-1,edgeIndex:-1,edgeKey:null});
   return path;
 }
 

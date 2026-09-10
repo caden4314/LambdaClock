@@ -19,9 +19,9 @@ export function sampleCRTPath(measured,phase){
   let s=measured.segments[measured.segments.length-1];
   for(const candidate of measured.segments){if(d<=candidate.end){s=candidate;break}}
   const t=clamp((d-s.start)/Math.max(1e-6,s.timeLength));
-  return {x:s.x1+(s.x2-s.x1)*t,y:s.y1+(s.y2-s.y1)*t,blanked:!!s.blanked,intensity:s.intensity??1};
+  return {x:s.x1+(s.x2-s.x1)*t,y:s.y1+(s.y2-s.y1)*t,blanked:!!s.blanked,intensity:s.intensity??1,runId:s.runId??0,edgeIndex:s.edgeIndex??-1,edgeKey:s.edgeKey??null};
 }
-export function createCRTBeamState(){return {phase:0,x:NaN,y:NaN,vx:0,vy:0,z:0,sample:0}}
+export function createCRTBeamState(){return {phase:0,scan:0,x:NaN,y:NaN,vx:0,vy:0,z:0,sample:0}}
 
 export function advanceCRTBeam(state,path,dt,{model='P7',beamRate=3.2,beamCurrent=1,width=1,height=1,retraceSpeed,deflectionHz,damping,maxSlew}={}){
   const m=resolvePhosphorModel(model),measured=measureCRTPath(path,retraceSpeed??m.retraceSpeed);if(!measured.total)return [];
@@ -29,7 +29,7 @@ export function advanceCRTBeam(state,path,dt,{model='P7',beamRate=3.2,beamCurren
   const estimatedPixels=measured.total*rate*frameDt,steps=Math.max(2,Math.min(40,Math.ceil(estimatedPixels/4))),h=frameDt/steps;
   const omega=2*Math.PI*Math.max(20,deflectionHz??m.deflectionHz),zeta=Math.max(.2,damping??m.damping),slew=Math.max(500,maxSlew??m.maxSlew),points=[];
   for(let i=0;i<steps;i++){
-    state.phase=mod1(state.phase+rate*h);const target=sampleCRTPath(measured,state.phase);if(!target)continue;
+    const phaseNext=state.phase+rate*h;if(phaseNext>=1)state.scan+=Math.floor(phaseNext);state.phase=mod1(phaseNext);const target=sampleCRTPath(measured,state.phase);if(!target)continue;
     if(!Number.isFinite(state.x)){state.x=target.x;state.y=target.y}
     let ax=omega*omega*(target.x-state.x)-2*zeta*omega*state.vx,ay=omega*omega*(target.y-state.y)-2*zeta*omega*state.vy;
     state.vx+=ax*h;state.vy+=ay*h;let velocity=Math.hypot(state.vx,state.vy);
@@ -41,7 +41,7 @@ export function advanceCRTBeam(state,path,dt,{model='P7',beamRate=3.2,beamCurren
     const screenGain=1-m.edgeLoss*edge*edge,dose=phosphorDose({beamCurrent:(beamCurrent??m.beamCurrent)*state.z,velocity});
     const flicker=.985+.015*Math.sin((state.sample++*.754877666+state.phase*31.7)*Math.PI*2);
     const energy=dose*screenGain*flicker*Math.max(.68,h*650),radius=m.spotRadius*(1+m.bloom*Math.sqrt(Math.max(0,dose)))*(1+.11*edge*edge);
-    if(energy>.0002)points.push({x:state.x,y:state.y,energy,radius,blanked:target.blanked});
+    if(energy>.0002)points.push({x:state.x,y:state.y,energy,radius,blanked:target.blanked,runId:target.runId,edgeIndex:target.edgeIndex,edgeKey:target.edgeKey,scan:state.scan});
   }
   return points;
 }
