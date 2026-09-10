@@ -99,12 +99,28 @@ function waveFunction(mode){
   return L(phase,L(x,sin('wave:sine',apply('wave:sine:add',free('ADD','wave:sine:addf'),pv('s'),apply('wave:sine:mul',free('MUL','wave:sine:mulf'),free('k','wave:sine:k'),xv('s'))))));
 }
 
+function succOp(p='succ'){
+  const n=`${p}:n`,f=`${p}:f`,x=`${p}:x`;
+  return L(n,L(f,L(x,A(`${p}:body`,V(f,`${p}:fv`),apply(`${p}:nfx`,V(n,`${p}:nv`),V(f,`${p}:nf`),V(x,`${p}:xv`))))));
+}
+function zetaRecurrence(p='zeta'){
+  const q=`${p}:q`,self=`${p}:self`,n=`${p}:n`,sum=`${p}:sum`;
+  const nextN=A(`${p}:succApply`,succOp(`${p}:succ`),V(n,`${p}:nv`));
+  const term=apply(`${p}:term`,free('TERM',`${p}:termf`),V(q,`${p}:qv`),V(n,`${p}:nt`));
+  const nextSum=apply(`${p}:cadd`,free('CADD',`${p}:caddf`),V(sum,`${p}:sumv`),term);
+  const loop=L(self,L(n,L(sum,apply(`${p}:again`,V(self,`${p}:selfv`),nextN,nextSum))));
+  return L(q,A(`${p}:fix`,yOp(`${p}:Y`),loop));
+}
 function termFor(props){
   const kind=props.kind;
   if(kind==='church')return church(props.value,'counter:n');
   if(kind==='boolean')return apply('bool:eval',boolOp(props.op,'bool:op'),bool(!!props.a,'bool:a'),...(props.op==='NOT'?[]:[bool(!!props.b,'bool:b')]));
   if(kind==='arithmetic')return apply('arith:eval',props.op==='MUL'?mulOp('arith:mul'):addOp('arith:add'),church(props.a,'arith:a'),church(props.b,'arith:b'));
   if(kind==='fibonacci')return apply('fib:iter',church(Math.min(14,props.n||0),'fib:n'),free('STEP','fib:step'),pair(church(0,'fib:zero'),church(1,'fib:one'),'fib:pair'));
+  if(kind==='zeta'){
+    const live=pair(boundedChurch(props.n,'zeta:state:n',9),pair(boundedChurch(props.magnitude,'zeta:state:mag',9),pair(boundedChurch(props.phase,'zeta:state:phase',8),pair(bool(!!props.sign,'zeta:state:sign'),boundedChurch(props.t,'zeta:state:t',9),'zeta:state:st'),'zeta:state:ps'),'zeta:state:mp'),'zeta:state');
+    return pair(zetaRecurrence('zeta:rec'),live,'zeta:live');
+  }
   if(kind==='wave'){
     const state=pair(boundedChurch(props.phase,'wave:state:phase',7),pair(boundedChurch(props.freq,'wave:state:freq',6),boundedChurch((Number(props.amp)||55)/12,'wave:state:amp',8),'wave:state:fa'),'wave:state');
     return pair(waveFunction(props.mode),state,'wave:live');
