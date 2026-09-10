@@ -1,8 +1,9 @@
 import {createSignal,onCleanup,onMount} from 'solid-js';
-import {DisplayCanvas,LambdaSurface,drawDotMatrix,drawPixelGrid,drawWave,drawGrid,drawScanlines,drawVignette,withGlow,pulse,sampleWave,clamp} from './display/index.js';
+import {DisplayCanvas,LambdaSurface,drawDotMatrix,drawPixelGrid,drawWave,drawGrid,drawScanlines,drawVignette,withGlow,pulse,sampleWave,clamp,rasterizeDotText,scrollDotRaster} from './display/index.js';
 import './display/display.css';
 
 const digitsOf=n=>String(Math.abs(Math.trunc(n))%1_000_000).padStart(6,'0').split('').map(Number);
+const dotMessage=rasterizeDotText(' LAMBDA DISPLAY ',{spacing:1,pad:1});
 function transitionFor(previous,next,seq){
   const changed=[];for(let i=5;i>=0;i--)if(previous[i]!==next[i])changed.push(i);
   const delays={};changed.forEach((index,order)=>delays[index]=order*72);
@@ -17,9 +18,9 @@ export default function DisplayLab(){
 
   function finish(ctx,width,height,time){if(scanlines())drawScanlines(ctx,{width,height,spacing:4,alpha:.05,offset:time*10});drawVignette(ctx,{width,height,strength:.3})}
   const matrixScene={render({ctx,width,height,time}){
-    const t=time*speed(),cols=24,rows=10;
-    const values=(i)=>{const x=i%cols,y=Math.floor(i/cols),target=(rows-1)*(.5+.32*Math.sin(t*1.6+x*.43));const d=Math.abs(y-target);return clamp(Math.exp(-d*d*.8)*(.7+.3*pulse(t,1.1,x*.018)))};
-    const draw=()=>drawDotMatrix(ctx,{width,height,cols,rows,values,radius:.36,gap:.18,offAlpha:.04,pulse:pulse(t,.7)});glow()?withGlow(ctx,7,draw,{alpha:.28}):draw();finish(ctx,width,height,t);
+    const t=time*speed(),scroll=scrollDotRaster(dotMessage,28,Math.floor(t*7));
+    const values=scroll.values.map((v,i)=>v?(.72+.28*pulse(t,1.15,(i%scroll.cols)*.025)):0);
+    const draw=()=>drawDotMatrix(ctx,{width,height,cols:scroll.cols,rows:scroll.rows,values,radius:.38,gap:.16,offAlpha:.035,pulse:pulse(t,.7)});glow()?withGlow(ctx,7,draw,{alpha:.28}):draw();finish(ctx,width,height,t);
   }};
   const waveScene={render({ctx,width,height,time}){
     const t=time*speed();drawGrid(ctx,{width,height,xDiv:10,yDiv:4,alpha:.07});
@@ -45,7 +46,7 @@ export default function DisplayLab(){
       <button class={glow()?'active':''} onClick={()=>setGlow(v=>!v)}>GLOW</button><button class={scanlines()?'active':''} onClick={()=>setScanlines(v=>!v)}>SCAN</button>
     </section>
     <section class="display-grid">
-      <article class="display-card"><header><span>01</span><div><b>DOT MATRIX</b><small>intensity + size field</small></div></header><div class="display-stage"><DisplayCanvas scene={matrixScene} paused={paused()} persistence={Math.min(.45,persistence()*.45)} label="Animated dot matrix"/></div></article>
+      <article class="display-card"><header><span>01</span><div><b>DOT MATRIX</b><small>5 × 7 text raster + intensity</small></div></header><div class="display-stage"><DisplayCanvas scene={matrixScene} paused={paused()} persistence={Math.min(.45,persistence()*.45)} label="Animated scrolling dot matrix"/></div></article>
       <article class="display-card"><header><span>02</span><div><b>WAVE SCOPE</b><small>anti-aliased trace + persistence</small></div></header><div class="display-stage"><DisplayCanvas scene={waveScene} paused={paused()} persistence={persistence()} label="Animated waveform oscilloscope"/></div></article>
       <article class="display-card"><header><span>03</span><div><b>PIXEL FIELD</b><small>32 × 18 intensity surface</small></div></header><div class="display-stage pixel-stage"><DisplayCanvas scene={pixelScene} paused={paused()} persistence={Math.min(.7,persistence()*.7)} label="Animated pixel field"/></div></article>
       <article class="display-card"><header><span>04</span><div><b>LAMBDA SURFACE</b><small>Tromp renderer adapter</small></div></header><div class="display-stage lambda-stage"><LambdaSurface digits={lambdaDigits()} transition={lambdaTransition()}/></div></article>
