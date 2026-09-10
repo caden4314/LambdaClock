@@ -9,10 +9,14 @@ export {createRingBuffer,findTriggerIndex,findTriggerAnchor,triggerWindow,drawSc
 export {nextPowerOfTwo,hannWindow,sampleSignal,sampleSignalInto,createFFTPlan,fftReal,createSpectrumAnalyzer,magnitudeSpectrum,dominantFrequency,normalizeSpectrum} from './signal.js';
 export {cartesianTransform,drawAxes,drawFunctionPlot,drawVectorField,mapToViewport} from './plot.js';
 export {createBeamPath,measureBeamPath,sampleBeamHead,drawPhosphorBeam,drawPhosphorFace,phosphorDecayForHalfLife} from './phosphor.js';
+export {PHOSPHOR_MODELS,resolvePhosphorModel,phosphorDecayFactors,phosphorDose,phosphorRelativeEnergy} from './phosphor-models.js';
+export {measureCRTPath,sampleCRTPath,createCRTBeamState,advanceCRTBeam} from './crt-beam.js';
+export {CRTPhosphorRenderer} from './crt-gl.js';
 export {CUBE_VERTICES,CUBE_EDGES,CUBE_TRACE_EDGES,rotatePoint3D,rotatePointByBasis,projectPoint3D,cubeProjection,cubeProjectionFromBasis,cubeBeamPath,drawWireCube} from './cube.js';
 export {default as DisplayCanvas} from './DisplayCanvas.jsx';
 export {default as HighResCanvas} from './HighResCanvas.jsx';
 export {default as Oscilloscope} from './Oscilloscope.jsx';
 export {default as SpectrumDisplay} from './SpectrumDisplay.jsx';
 export {default as PhosphorVectorDisplay} from './PhosphorVectorDisplay.jsx';
+export {default as PhosphorCRTDisplay} from './PhosphorCRTDisplay.jsx';
 export {default as LambdaSurface} from './LambdaSurface.jsx';
