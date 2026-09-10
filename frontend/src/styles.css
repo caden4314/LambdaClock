@@ -89,3 +89,18 @@ button{font:inherit}
 .project-lambda-canvas .lambda-display{width:100%;height:100%;animation:none}
 .project-lambda-expression{display:block;width:100%;padding:11px 14px;border-top:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.58);font-size:11px;line-height:1.45;overflow-wrap:anywhere;white-space:normal}
 @media(max-width:720px){.project-lambda-canvas{height:clamp(190px,30vh,280px);min-height:190px}.project-lambda-expression{padding:10px 11px;font-size:10px}}
+
+/* refined loop systems */
+.metric-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%}
+.metric{min-height:68px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(255,255,255,.025),transparent);display:flex;flex-direction:column;justify-content:space-between;gap:8px;padding:11px 13px;overflow:hidden}
+.metric small{font-size:9px;letter-spacing:.11em;text-transform:uppercase;opacity:.38}.metric b{font-size:clamp(15px,2.3vw,24px);font-weight:350;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.loop-project .project-body{gap:18px}.loop-project .project-lambda-panel{margin-top:0}
+.loop-plot{display:block;width:100%;height:min(34vh,310px);min-height:190px;border:1px solid rgba(255,255,255,.12);background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.025),transparent 55%)}
+.loop-plot line{stroke:rgba(255,255,255,.09);stroke-width:.35;vector-effect:non-scaling-stroke}.loop-plot polyline{fill:none;stroke:#fff;stroke-width:1.25;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}.loop-plot circle{fill:#fff;filter:drop-shadow(0 0 2px #fff)}
+.collatz-trail{height:min(30vh,260px);min-height:170px;display:flex;align-items:flex-end;gap:2px;border:1px solid rgba(255,255,255,.12);padding:12px;background:linear-gradient(180deg,rgba(255,255,255,.018),transparent)}
+.collatz-trail i{flex:1;min-width:2px;max-width:20px;background:rgba(255,255,255,.38);transform-origin:bottom;transition:height .24s cubic-bezier(.2,.8,.2,1),background .2s,opacity .2s;opacity:.72}.collatz-trail i.active{background:#fff;opacity:1;box-shadow:0 0 10px rgba(255,255,255,.16)}
+.project-lambda-panel{background:linear-gradient(180deg,rgba(255,255,255,.015),transparent);transition:border-color .25s,background .25s}.project-lambda-panel:hover{border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.018)}
+.project-body>.lab-range{max-width:720px;margin-inline:auto}.project-body>.split-controls{width:100%}.project-body>.lab-controls{width:100%}
+.lab-button.active{box-shadow:0 0 0 1px rgba(255,255,255,.13),0 0 22px rgba(255,255,255,.06)}
+@media(max-width:720px){.metric-row{gap:5px}.metric{min-height:59px;padding:9px}.metric small{font-size:8px}.metric b{font-size:14px}.loop-plot{height:27vh;min-height:170px}.collatz-trail{height:24vh;min-height:150px;padding:8px}.side-menu{padding-top:66px}.menu-project{min-height:49px;padding-block:6px}.menu-project small{font-size:9px}}
+@media(max-width:420px){.metric-row{grid-template-columns:1fr 1fr}.metric-row .metric:last-child:nth-child(odd){grid-column:1/-1}.loop-plot{min-height:155px}.collatz-trail{min-height:135px}.menu-project{min-height:46px}}
