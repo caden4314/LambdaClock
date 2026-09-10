@@ -1,11 +1,12 @@
-export {createDisplayRuntime,clamp,lerp} from './engine.js';
+export {createDisplayRuntime,resolveCanvasDpr,clamp,lerp} from './engine.js';
+export {getDisplaySchedulerStats} from './scheduler.js';
 export {normalizeValues,sampleWave,drawDotMatrix,drawPixelGrid,drawWave,drawGrid,drawPolyline} from './primitives.js';
 export {smoothstep,smootherstep,pulse,triangle,springStep,exponentialSmoothing,withGlow,drawScanlines,drawVignette,flashEnvelope} from './effects.js';
 export {displayLayer,createScene} from './scene.js';
 export {rasterizeDotText,scrollDotRaster} from './dotfont.js';
 export {resolveHighResSize,createHighResCanvas,renderHighRes,highResBlob} from './highres.js';
-export {createRingBuffer,findTriggerIndex,triggerWindow,drawScopeGraticule,drawOscilloscope,drawXYScope} from './scope.js';
-export {nextPowerOfTwo,hannWindow,sampleSignal,fftReal,magnitudeSpectrum,dominantFrequency,normalizeSpectrum} from './signal.js';
+export {createRingBuffer,findTriggerIndex,findTriggerAnchor,triggerWindow,drawScopeGraticule,drawOscilloscope,drawXYScope} from './scope.js';
+export {nextPowerOfTwo,hannWindow,sampleSignal,sampleSignalInto,createFFTPlan,fftReal,createSpectrumAnalyzer,magnitudeSpectrum,dominantFrequency,normalizeSpectrum} from './signal.js';
 export {cartesianTransform,drawAxes,drawFunctionPlot,drawVectorField,mapToViewport} from './plot.js';
 export {default as DisplayCanvas} from './DisplayCanvas.jsx';
 export {default as HighResCanvas} from './HighResCanvas.jsx';
