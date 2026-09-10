@@ -11,7 +11,7 @@ function runtimeOptions(props){
     resolutionScale:props.resolutionScale??1,
     adaptiveResolution:props.adaptiveResolution!==false,
     minQuality:props.minQuality??.55,
-    maxFps:props.maxFps??60
+    maxFps:props.maxFps??0
   };
 }
 
