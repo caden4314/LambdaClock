@@ -1,4 +1,4 @@
-import {runAlu,runArithmeticShift,runCordicSinCos} from '../frontend/src/lambda-math/library.js';
+import {runAlu,runArithmeticShift,runCordicSinCos,wordView,cordicView} from '../frontend/src/lambda-math/index.js';
 
 const expect=(actual,want,label)=>{if(actual!==want)throw new Error(`${label}: ${actual} !== ${want}`)};
 const aluCases=[
@@ -9,6 +9,8 @@ for(const [op,a,b,want] of aluCases){
   const out=runAlu(op,a,b);
   expect(out.signed,want,`${op}(${a},${b})`);
   if(out.beta<=0)throw new Error(`${op}: no beta reductions recorded`);
+  const view=wordView(out);
+  if(view.binary.length!==16||!view.hex.startsWith('0x'))throw new Error(`${op}: invalid display view`);
 }
 expect(runArithmeticShift(-5,2).signed,-2,'sar(-5,2)');
 expect(runArithmeticShift(1024,5).signed,32,'sar(1024,5)');
@@ -23,5 +25,7 @@ for(const deg of [-90,-60,-30,0,30,45,60,90]){
   maxBeta=Math.max(maxBeta,out.beta);
   if(sinError>.0012||cosError>.0012)throw new Error(`CORDIC ${deg}° error: sin=${sinError}, cos=${cosError}`);
   if(out.beta<=0)throw new Error(`CORDIC ${deg}°: no beta reductions recorded`);
+  const view=cordicView(out);
+  if(view.x.binary.length!==16||view.y.binary.length!==16||view.stats.beta<=0)throw new Error(`CORDIC ${deg}°: invalid display view`);
 }
 console.log(`Lambda math self-test passed; max CORDIC error=${maxError.toFixed(9)}, max beta=${maxBeta}`);
