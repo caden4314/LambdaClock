@@ -13,7 +13,7 @@ function transitionFor(previous,next,seq){
 const fixed=value=>Number(value||0).toFixed(5),vectorText=vector=>`[${(vector||[]).map(value=>Number(value||0).toFixed(3)).join(', ')}]`;
 
 export default function LambdaCube(){
-  const [paused,setPaused]=createSignal(false),[speed,setSpeed]=createSignal(1),[beamRate,setBeamRate]=createSignal(3.2),[beamCurrent,setBeamCurrent]=createSignal(1.35),[persistence,setPersistence]=createSignal(1),[phosphor,setPhosphor]=createSignal('P7'),[blankRetrace,setBlankRetrace]=createSignal(true),[metrics,setMetrics]=createSignal(initialMetrics);
+  const [paused,setPaused]=createSignal(false),[speed,setSpeed]=createSignal(1),[beamRate,setBeamRate]=createSignal(3.2),[beamCurrent,setBeamCurrent]=createSignal(1.75),[persistence,setPersistence]=createSignal(1),[phosphor,setPhosphor]=createSignal('P7'),[blankRetrace,setBlankRetrace]=createSignal(true),[metrics,setMetrics]=createSignal(initialMetrics);
   const [lambdaDigits,setLambdaDigits]=createSignal([0,0,0,0,0,0]),[lambdaTransition,setLambdaTransition]=createSignal(transitionFor([0,0,0,0,0,0],[0,0,0,0,0,0],0));
   let worker=null,lambdaSeq=0,crtApi=null;const targetBasis=identity(),currentBasis=identity();
   function cubePath(frame){
@@ -35,7 +35,7 @@ export default function LambdaCube(){
       <button class={paused()?'active':''} onClick={togglePause}>{paused()?'RUN':'PAUSE'}</button>
       <label>ROTATE <input type="range" min="0.2" max="3" step="0.1" value={speed()} onInput={e=>changeSpeed(+e.currentTarget.value)}/><span>{speed().toFixed(1)}×</span></label>
       <label>BEAM <input type="range" min="0.5" max="8" step="0.1" value={beamRate()} onInput={e=>setBeamRate(+e.currentTarget.value)}/><span>{beamRate().toFixed(1)}×</span></label>
-      <label>CURRENT <input type="range" min="0.25" max="2" step="0.05" value={beamCurrent()} onInput={e=>setBeamCurrent(+e.currentTarget.value)}/><span>{beamCurrent().toFixed(2)}</span></label>
+      <label>CURRENT <input type="range" min="0.25" max="3" step="0.05" value={beamCurrent()} onInput={e=>setBeamCurrent(+e.currentTarget.value)}/><span>{beamCurrent().toFixed(2)}</span></label>
       <label>PERSIST <input type="range" min="0.25" max="2.5" step="0.05" value={persistence()} onInput={e=>setPersistence(+e.currentTarget.value)}/><span>{persistence().toFixed(2)}×</span></label>
       <button class={phosphor()==='P7'?'active':''} onClick={()=>setPhosphor(p=>p==='P7'?'P31':'P7')}>{phosphor()}</button>
       <button class={blankRetrace()?'active':''} onClick={()=>setBlankRetrace(v=>!v)}>BLANK RETRACE</button><button onClick={reset}>RESET</button>
