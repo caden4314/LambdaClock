@@ -8,6 +8,7 @@ export {resolveHighResSize,createHighResCanvas,renderHighRes,highResBlob} from '
 export {createRingBuffer,findTriggerIndex,findTriggerAnchor,triggerWindow,drawScopeGraticule,drawOscilloscope,drawXYScope} from './scope.js';
 export {nextPowerOfTwo,hannWindow,sampleSignal,sampleSignalInto,createFFTPlan,fftReal,createSpectrumAnalyzer,magnitudeSpectrum,dominantFrequency,normalizeSpectrum} from './signal.js';
 export {cartesianTransform,drawAxes,drawFunctionPlot,drawVectorField,mapToViewport} from './plot.js';
+export {CUBE_VERTICES,CUBE_EDGES,rotatePoint3D,projectPoint3D,cubeProjection,drawWireCube} from './cube.js';
 export {default as DisplayCanvas} from './DisplayCanvas.jsx';
 export {default as HighResCanvas} from './HighResCanvas.jsx';
 export {default as Oscilloscope} from './Oscilloscope.jsx';
