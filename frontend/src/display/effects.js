@@ -14,17 +14,28 @@ export function springStep(state,target,dt,{frequency=8,damping=1}={}){
 
 export function exponentialSmoothing(current,target,dt,speed=10){return lerp(current,target,1-Math.exp(-Math.max(0,speed)*dt))}
 
-export function withGlow(ctx,amount,draw,{alpha=.3}={}){
-  if(!amount){draw();return}
-  ctx.save();ctx.shadowColor=`rgba(255,255,255,${clamp(alpha)})`;ctx.shadowBlur=Math.max(0,amount);draw();ctx.restore();
+export function withGlow(ctx,amount,draw,{alpha=.3,quality=1}={}){
+  const q=clamp(Number(quality)||1,.35,1);
+  if(!amount||q<.58){draw();return}
+  ctx.save();ctx.shadowColor=`rgba(255,255,255,${clamp(alpha)*q})`;ctx.shadowBlur=Math.max(0,amount*(.55+.45*q));draw();ctx.restore();
 }
 
 export function drawScanlines(ctx,{width,height,spacing=4,alpha=.045,offset=0}={}){
-  const w=width??ctx.canvas.clientWidth,h=height??ctx.canvas.clientHeight;ctx.save();ctx.fillStyle='#000';ctx.globalAlpha=clamp(alpha);for(let y=((offset%spacing)+spacing)%spacing;y<h;y+=spacing)ctx.fillRect(0,y,w,1);ctx.restore();
+  const w=width??ctx.canvas.clientWidth,h=height??ctx.canvas.clientHeight,step=Math.max(2,spacing);
+  ctx.save();ctx.strokeStyle='#000';ctx.globalAlpha=clamp(alpha);ctx.lineWidth=1;ctx.beginPath();
+  for(let y=((offset%step)+step)%step+.5;y<h;y+=step){ctx.moveTo(0,y);ctx.lineTo(w,y)}
+  ctx.stroke();ctx.restore();
 }
 
+const vignetteCache=new WeakMap();
 export function drawVignette(ctx,{width,height,strength=.34}={}){
-  const w=width??ctx.canvas.clientWidth,h=height??ctx.canvas.clientHeight;const r=Math.max(w,h)*.72;const g=ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*.12,w/2,h/2,r);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,`rgba(0,0,0,${clamp(strength)})`);ctx.save();ctx.fillStyle=g;ctx.fillRect(0,0,w,h);ctx.restore();
+  const w=width??ctx.canvas.clientWidth,h=height??ctx.canvas.clientHeight,s=clamp(strength);
+  const key=`${ctx.canvas.width}x${ctx.canvas.height}:${Math.round(w*10)}:${Math.round(h*10)}:${Math.round(s*1000)}`;
+  let cached=vignetteCache.get(ctx);
+  if(!cached||cached.key!==key){
+    const r=Math.max(w,h)*.72,g=ctx.createRadialGradient(w/2,h/2,Math.min(w,h)*.12,w/2,h/2,r);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,`rgba(0,0,0,${s})`);cached={key,gradient:g};vignetteCache.set(ctx,cached);
+  }
+  ctx.save();ctx.fillStyle=cached.gradient;ctx.fillRect(0,0,w,h);ctx.restore();
 }
 
 export function flashEnvelope(age,duration=.5){if(age<0||age>duration)return 0;const t=age/duration;return Math.sin(Math.PI*clamp(t))**1.6}
