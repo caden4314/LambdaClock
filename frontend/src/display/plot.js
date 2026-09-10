@@ -12,8 +12,8 @@ export function drawAxes(ctx,{width,height,xMin=-5,xMax=5,yMin=-5,yMax=5,xStep=1
   ctx.globalAlpha=axisAlpha;ctx.beginPath();if(xMin<=0&&xMax>=0){const px=t.xToCanvas(0);ctx.moveTo(px,0);ctx.lineTo(px,height)}if(yMin<=0&&yMax>=0){const py=t.yToCanvas(0);ctx.moveTo(0,py);ctx.lineTo(width,py)}ctx.stroke();ctx.restore();return t;
 }
 
-export function drawFunctionPlot(ctx,fn,{width,height,xMin=-5,xMax=5,yMin=-5,yMax=5,samples=1200,lineWidth=1.25,alpha=.95,axes=true}={}){
-  const t=axes?drawAxes(ctx,{width,height,xMin,xMax,yMin,yMax}):cartesianTransform({width,height,xMin,xMax,yMin,yMax}),n=Math.max(32,Math.trunc(samples)),range=xMax-xMin;ctx.save();ctx.strokeStyle='#fff';ctx.globalAlpha=alpha;ctx.lineWidth=lineWidth;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();let started=false;
+export function drawFunctionPlot(ctx,fn,{width,height,xMin=-5,xMax=5,yMin=-5,yMax=5,samples=1200,lineWidth=1.25,alpha=.95,axes=true,widthScale=1,alphaScale=1}={}){
+  const t=axes?drawAxes(ctx,{width,height,xMin,xMax,yMin,yMax}):cartesianTransform({width,height,xMin,xMax,yMin,yMax}),n=Math.max(32,Math.trunc(samples)),range=xMax-xMin;ctx.save();ctx.strokeStyle='#fff';ctx.globalAlpha=alpha*Math.max(0,alphaScale);ctx.lineWidth=lineWidth*Math.max(.1,widthScale);ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();let started=false;
   for(let i=0;i<n;i++){const x=xMin+range*i/(n-1),y=Number(fn?.(x,i,n));if(!Number.isFinite(y)||y<yMin*20||y>yMax*20){started=false;continue}const px=t.xToCanvas(x),py=t.yToCanvas(y);if(!started){ctx.moveTo(px,py);started=true}else ctx.lineTo(px,py)}ctx.stroke();ctx.restore();return t;
 }
 
