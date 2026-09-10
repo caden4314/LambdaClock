@@ -22,7 +22,7 @@ export function createDisplayRuntime(canvas,options={}){
     scene:null,running:false,destroyed:false,visible:true,pageVisible:!globalThis.document?.hidden,
     width:1,height:1,dpr:1,requestedDpr:1,pixelCount:1,last:clock(),elapsed:0,frame:0,fps:0,renderMs:0,
     quality:1,lastAdapt:0,badWindows:0,goodWindows:0,nextFrameAt:0,resizeDirty:true,
-    options:{background:'#000',persistence:0,maxDpr:2.5,maxPixels:1_500_000,resolutionScale:1,adaptiveResolution:true,minQuality:.55,maxFps:60,paused:false,...options}
+    options:{background:'#000',persistence:0,maxDpr:2.5,maxPixels:1_500_000,resolutionScale:1,adaptiveResolution:true,minQuality:.55,maxFps:0,paused:false,...options}
   };
   let unsubscribeFrame=null,resizeObserver=null,intersectionObserver=null,media=null;
 
@@ -75,13 +75,13 @@ export function createDisplayRuntime(canvas,options={}){
     if(state.options.adaptiveResolution===false||timestamp-state.lastAdapt<750)return;
     state.lastAdapt=timestamp;
     const stats=getDisplaySchedulerStats(),activeCount=Math.max(1,stats.activeSurfaces);
-    const budget=Math.max(.8,(schedulerFrameMs||stats.frameMs||16.67)*.82/activeCount);
-    const overloaded=state.renderMs>budget*1.08||stats.load>.92;
-    const underloaded=state.renderMs<budget*.52&&stats.load<.66;
+    const budget=Math.max(.7,(schedulerFrameMs||stats.frameMs||16.67)*.84/activeCount);
+    const overloaded=state.renderMs>budget*1.08||stats.load>.9;
+    const underloaded=state.renderMs<budget*.48&&stats.load<.62;
     if(overloaded){state.badWindows++;state.goodWindows=0}else if(underloaded){state.goodWindows++;state.badWindows=0}else{state.badWindows=0;state.goodWindows=0}
     let next=state.quality;
-    if(state.badWindows>=2){next=Math.max(clamp(state.options.minQuality??.55,.35,1),state.quality*.86);state.badWindows=0}
-    else if(state.goodWindows>=4&&state.quality<.999){next=Math.min(1,state.quality+.06);state.goodWindows=0}
+    if(state.badWindows>=2){next=Math.max(clamp(state.options.minQuality??.55,.35,1),state.quality*.84);state.badWindows=0}
+    else if(state.goodWindows>=5&&state.quality<.999){next=Math.min(1,state.quality+.05);state.goodWindows=0}
     if(Math.abs(next-state.quality)>.005){state.quality=next;state.resizeDirty=true}
   }
 
@@ -92,7 +92,8 @@ export function createDisplayRuntime(canvas,options={}){
     state.fps=state.fps?lerp(state.fps,1/Math.max(dt,.0001),.08):1/Math.max(dt,.0001);
     const started=clock();
     background();ctx.save();
-    state.scene?.render?.({ctx,width:state.width,height:state.height,dpr:state.dpr,pixelWidth:canvas.width,pixelHeight:canvas.height,time:state.elapsed,dt,frame:state.frame,fps:state.fps,quality:state.quality,reducedMotion:!!media?.matches,runtime:api,scheduler:getDisplaySchedulerStats()});
+    const scheduler=getDisplaySchedulerStats();
+    state.scene?.render?.({ctx,width:state.width,height:state.height,dpr:state.dpr,pixelWidth:canvas.width,pixelHeight:canvas.height,time:state.elapsed,dt,frame:state.frame,fps:state.fps,quality:state.quality,reducedMotion:!!media?.matches,runtime:api,scheduler});
     ctx.restore();
     const cost=Math.max(0,clock()-started);state.renderMs=state.renderMs?lerp(state.renderMs,cost,.08):cost;
     adapt(timestamp,schedulerFrameMs);
