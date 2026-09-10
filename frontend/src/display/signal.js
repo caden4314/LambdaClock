@@ -1,18 +1,46 @@
 export function nextPowerOfTwo(value){let n=1,target=Math.max(2,Math.trunc(value)||2);while(n<target)n<<=1;return n}
-export function hannWindow(length){const n=Math.max(2,Math.trunc(length));return Array.from({length:n},(_,i)=>.5-.5*Math.cos(2*Math.PI*i/(n-1)))}
-export function sampleSignal(source,{count=1024,sampleRate=4096,startTime=0}={}){const n=Math.max(2,Math.trunc(count));return Array.from({length:n},(_,i)=>Number(source?.(startTime+i/sampleRate,i,sampleRate)??0)||0)}
+const hannCache=new Map(),fftPlanCache=new Map();
+export function hannWindow(length){const n=Math.max(2,Math.trunc(length));let out=hannCache.get(n);if(!out){out=new Float64Array(n);for(let i=0;i<n;i++)out[i]=.5-.5*Math.cos(2*Math.PI*i/(n-1));hannCache.set(n,out)}return out}
+export function sampleSignal(source,{count=1024,sampleRate=4096,startTime=0}={}){const out=new Float64Array(Math.max(2,Math.trunc(count)));return sampleSignalInto(out,source,{sampleRate,startTime})}
+export function sampleSignalInto(target,source,{sampleRate=4096,startTime=0}={}){const n=target?.length??0,rate=Math.max(1,Number(sampleRate)||4096);for(let i=0;i<n;i++)target[i]=Number(source?.(startTime+i/rate,i,rate)??0)||0;return target}
+
+export function createFFTPlan(size){
+  const n=nextPowerOfTwo(size);let plan=fftPlanCache.get(n);if(plan)return plan;
+  const reverse=new Uint32Array(n),cos=new Float64Array(n>>1),sin=new Float64Array(n>>1),bits=Math.log2(n);
+  for(let i=0;i<n;i++){let value=i,rev=0;for(let b=0;b<bits;b++){rev=(rev<<1)|(value&1);value>>=1}reverse[i]=rev}
+  for(let i=0;i<n/2;i++){const angle=-2*Math.PI*i/n;cos[i]=Math.cos(angle);sin[i]=Math.sin(angle)}
+  plan={size:n,reverse,cos,sin,transform(re,im){
+    for(let i=0;i<n;i++){const j=reverse[i];if(i<j){const rr=re[i];re[i]=re[j];re[j]=rr;const ii=im[i];im[i]=im[j];im[j]=ii}}
+    for(let len=2;len<=n;len<<=1){const half=len>>1,step=n/len;for(let start=0;start<n;start+=len){for(let j=0;j<half;j++){const k=j*step,wr=cos[k],wi=sin[k],even=start+j,odd=even+half,tr=wr*re[odd]-wi*im[odd],ti=wr*im[odd]+wi*re[odd],er=re[even],ei=im[even];re[even]=er+tr;im[even]=ei+ti;re[odd]=er-tr;im[odd]=ei-ti}}}
+    return {re,im,size:n};
+  }};
+  fftPlanCache.set(n,plan);return plan;
+}
 
 export function fftReal(samples){
-  const input=Array.from(samples||[],Number),n=nextPowerOfTwo(input.length),re=new Float64Array(n),im=new Float64Array(n);for(let i=0;i<input.length;i++)re[i]=Number.isFinite(input[i])?input[i]:0;
-  for(let i=1,j=0;i<n;i++){let bit=n>>1;for(;j&bit;bit>>=1)j^=bit;j^=bit;if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]]}}
-  for(let len=2;len<=n;len<<=1){const angle=-2*Math.PI/len,wlr=Math.cos(angle),wli=Math.sin(angle);for(let start=0;start<n;start+=len){let wr=1,wi=0;for(let j=0;j<len/2;j++){const even=start+j,odd=even+len/2,tr=wr*re[odd]-wi*im[odd],ti=wr*im[odd]+wi*re[odd],er=re[even],ei=im[even];re[even]=er+tr;im[even]=ei+ti;re[odd]=er-tr;im[odd]=ei-ti;const nr=wr*wlr-wi*wli;wi=wr*wli+wi*wlr;wr=nr}}}
-  return {re,im,size:n};
+  const source=samples||[],plan=createFFTPlan(source.length??0),n=plan.size,re=new Float64Array(n),im=new Float64Array(n);for(let i=0;i<Math.min(n,source.length??0);i++){const value=Number(source[i]);re[i]=Number.isFinite(value)?value:0}plan.transform(re,im);return {re,im,size:n};
+}
+
+export function createSpectrumAnalyzer({fftSize=1024,sampleRate=4096,window='hann',dbFloor=-90,dbCeiling=0}={}){
+  const plan=createFFTPlan(fftSize),n=plan.size,rate=Math.max(n,Number(sampleRate)||4096),bins=n>>1,weights=window==='hann'?hannWindow(n):null;
+  const samples=new Float64Array(n),re=new Float64Array(n),im=new Float64Array(n),magnitudes=new Float32Array(bins),db=new Float32Array(bins),values=new Float32Array(bins);
+  const result={size:n,sampleRate:rate,binHz:rate/n,samples,magnitudes,db,values};
+  return {
+    ...result,
+    analyze(source,{startTime=0,floor=dbFloor,ceiling=dbCeiling}={}){
+      sampleSignalInto(samples,source,{sampleRate:rate,startTime});
+      for(let i=0;i<n;i++){re[i]=samples[i]*(weights?weights[i]:1);im[i]=0}
+      plan.transform(re,im);
+      const span=Math.max(1e-9,ceiling-floor);
+      for(let i=0;i<bins;i++){const magnitude=2*Math.hypot(re[i],im[i])/n,d=Math.max(floor,20*Math.log10(Math.max(magnitude,1e-12)));magnitudes[i]=magnitude;db[i]=d;values[i]=Math.max(0,Math.min(1,(d-floor)/span))}
+      return result;
+    }
+  };
 }
 
 export function magnitudeSpectrum(samples,{sampleRate=4096,window='hann',dbFloor=-100}={}){
-  const n=nextPowerOfTwo(samples?.length??2),source=Array.from({length:n},(_,i)=>Number(samples?.[i]??0)||0),win=window==='hann'?hannWindow(n):Array(n).fill(1);for(let i=0;i<n;i++)source[i]*=win[i];
-  const {re,im}=fftReal(source),bins=n/2,out=new Array(bins);for(let i=0;i<bins;i++){const magnitude=2*Math.hypot(re[i],im[i])/n,db=Math.max(dbFloor,20*Math.log10(Math.max(magnitude,1e-12)));out[i]={bin:i,frequency:i*sampleRate/n,magnitude,db}}
-  return out;
+  const n=nextPowerOfTwo(samples?.length??2),source=new Float64Array(n),weights=window==='hann'?hannWindow(n):null;for(let i=0;i<n;i++)source[i]=(Number(samples?.[i]??0)||0)*(weights?weights[i]:1);
+  const {re,im}=fftReal(source),bins=n/2,out=new Array(bins);for(let i=0;i<bins;i++){const magnitude=2*Math.hypot(re[i],im[i])/n,db=Math.max(dbFloor,20*Math.log10(Math.max(magnitude,1e-12)));out[i]={bin:i,frequency:i*sampleRate/n,magnitude,db}}return out;
 }
 export function dominantFrequency(spectrum,{minFrequency=1}={}){let best=null;for(const point of spectrum||[])if(point.frequency>=minFrequency&&(!best||point.magnitude>best.magnitude))best=point;return best}
 export function normalizeSpectrum(spectrum,{floor=-90,ceiling=0}={}){const span=Math.max(1e-9,ceiling-floor);return (spectrum||[]).map(point=>({...point,value:Math.max(0,Math.min(1,(point.db-floor)/span))}))}
