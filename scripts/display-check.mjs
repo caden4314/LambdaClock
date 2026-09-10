@@ -2,9 +2,10 @@ import {normalizeValues,sampleWave} from '../frontend/src/display/primitives.js'
 import {smoothstep,smootherstep,pulse,springStep} from '../frontend/src/display/effects.js';
 import {rasterizeDotText,scrollDotRaster} from '../frontend/src/display/dotfont.js';
 import {createScene,displayLayer} from '../frontend/src/display/scene.js';
+import {resolveCanvasDpr} from '../frontend/src/display/engine.js';
 import {resolveHighResSize} from '../frontend/src/display/highres.js';
 import {createRingBuffer,findTriggerIndex,triggerWindow} from '../frontend/src/display/scope.js';
-import {sampleSignal,magnitudeSpectrum,dominantFrequency,nextPowerOfTwo} from '../frontend/src/display/signal.js';
+import {sampleSignal,magnitudeSpectrum,dominantFrequency,nextPowerOfTwo,createFFTPlan,createSpectrumAnalyzer} from '../frontend/src/display/signal.js';
 import {cartesianTransform} from '../frontend/src/display/plot.js';
 
 const assert=(ok,message)=>{if(!ok)throw new Error(message)};
@@ -19,9 +20,12 @@ const text=rasterizeDotText('LAMBDA');assert(text.rows===7&&text.cols>25&&text.v
 const layer=displayLayer(()=>{}),scene=createScene(layer);assert(scene.layers.length===1&&scene.layers[0]===layer,'scene composes display layers');
 
 const high=resolveHighResSize({width:1920,height:1080,scale:4,maxPixels:20_000_000});assert(high.pixelWidth*high.pixelHeight<=20_000_000,'high-res pixel cap');assert(high.scale<=4&&high.scale>1,'high-res scale resolves');
+const live=resolveCanvasDpr({width:1000,height:500,nativeDpr:2,resolutionScale:3,maxDpr:8,maxPixels:1_000_000,quality:1});assert(live.pixelCount<=1_000_000,'live canvas pixel budget');assert(live.dpr<2,'live DPR adapts to pixel budget');
 const ring=createRingBuffer(4);ring.pushMany([1,2,3,4,5]);assert(ring.length===4&&ring.toArray().join(',')==='2,3,4,5','ring buffer wraps');
-const triggerSamples=[-.4,-.2,-.1,.2,.5,.3,-.2,.2];assert(findTriggerIndex(triggerSamples,{level:0,hysteresis:.01})===3,'rising trigger found');const tw=triggerWindow([triggerSamples,triggerSamples.map(v=>-v)],{count:5,level:0,pretrigger:.2});assert(tw.length===2&&tw[0].length===5,'triggered channel window');
+const triggerSamples=[-.4,-.2,-.1,.2,.5,.3,-.2,.2];assert(findTriggerIndex(triggerSamples,{level:0,hysteresis:.01})===3,'rising trigger found');const typed=new Float32Array(triggerSamples),tw=triggerWindow([typed,typed],{count:5,level:0,pretrigger:.2});assert(tw.length===2&&tw[0].length===5&&ArrayBuffer.isView(tw[0]),'triggered typed channel window');
 
-assert(nextPowerOfTwo(1000)===1024,'FFT power-of-two sizing');const sampleRate=4096,frequency=256,samples=sampleSignal(t=>Math.sin(Math.PI*2*frequency*t),{count:1024,sampleRate});const spectrum=magnitudeSpectrum(samples,{sampleRate}),peak=dominantFrequency(spectrum);assert(Math.abs(peak.frequency-frequency)<1e-6,'FFT dominant frequency');
+assert(nextPowerOfTwo(1000)===1024,'FFT power-of-two sizing');const planA=createFFTPlan(1024),planB=createFFTPlan(1024);assert(planA===planB,'FFT plans are cached');
+const sampleRate=4096,frequency=256,samples=sampleSignal(t=>Math.sin(Math.PI*2*frequency*t),{count:1024,sampleRate}),spectrum=magnitudeSpectrum(samples,{sampleRate}),peak=dominantFrequency(spectrum);assert(Math.abs(peak.frequency-frequency)<1e-6,'FFT dominant frequency');
+const analyzer=createSpectrumAnalyzer({fftSize:1024,sampleRate}),first=analyzer.analyze(t=>Math.sin(Math.PI*2*frequency*t)),values=first.values,second=analyzer.analyze(t=>Math.sin(Math.PI*2*frequency*t),{startTime:.1});assert(second.values===values&&second.samples===first.samples,'spectrum analyzer reuses buffers');
 const transform=cartesianTransform({xMin:-1,xMax:1,yMin:-1,yMax:1,width:100,height:100}),origin=transform.toCanvas(0,0);assert(close(origin[0],50)&&close(origin[1],50),'Cartesian transform origin');
-console.log(`Display system self-test passed; FFT peak=${peak.frequency}Hz; hi-res=${high.pixelWidth}x${high.pixelHeight}`);
+console.log(`Display system self-test passed; FFT peak=${peak.frequency}Hz; hi-res=${high.pixelWidth}x${high.pixelHeight}; live=${live.pixelWidth}x${live.pixelHeight}`);
