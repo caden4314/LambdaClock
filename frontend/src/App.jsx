@@ -1,9 +1,10 @@
-import {batch,createSignal,onCleanup,onMount} from 'solid-js';
+import {batch,createSignal,onCleanup,onMount,Show} from 'solid-js';
 import AnimatedDigit from './AnimatedDigit.jsx';
 import LambdaDisplay from './LambdaDisplay.jsx';
 import SideMenu from './SideMenu.jsx';
+import MathLibrary from './MathLibrary.jsx';
 
-const MENU_ITEMS=[{id:'clock',name:'Clock',note:'Church time'}];
+const MENU_ITEMS=[{id:'clock',name:'Clock',note:'Church time'},{id:'math',name:'Math Library',note:'real lambda arithmetic'}];
 const two=n=>String(n).padStart(2,'0');
 
 function readTime(){
@@ -31,6 +32,8 @@ function idleTransition(time){return {seq:0,changed:[],delays:{},special:null,re
 
 export default function App(){
   const first=readTime();
+  const initialPage=globalThis.location?.hash==='#math'?'math':'clock';
+  const [selected,setSelected]=createSignal(initialPage);
   const [time,setTime]=createSignal(first);
   const [transition,setTransition]=createSignal(idleTransition(first));
   const [menuOpen,setMenuOpen]=createSignal(false);
@@ -40,13 +43,21 @@ export default function App(){
     const delay=1000-(Date.now()%1000)+12;
     timer=setTimeout(()=>{const previous=time(),next=readTime(),nextTransition=makeTransition(previous,next,++sequence);batch(()=>{setTransition(nextTransition);setTime(next)});scheduleTick()},delay);
   }
-  onMount(()=>{if(globalThis.location?.hash)globalThis.history?.replaceState?.(null,'',`${location.pathname}${location.search}`);scheduleTick()});
-  onCleanup(()=>clearTimeout(timer));
+  function selectPage(id){
+    if(!MENU_ITEMS.some(item=>item.id===id))return;
+    setSelected(id);setMenuOpen(false);
+    const base=`${location.pathname}${location.search}`;
+    globalThis.history?.replaceState?.(null,'',id==='clock'?base:`${base}#${id}`);
+  }
+  function onHash(){setSelected(globalThis.location?.hash==='#math'?'math':'clock')}
+  onMount(()=>{scheduleTick();window.addEventListener('hashchange',onHash)});
+  onCleanup(()=>{clearTimeout(timer);window.removeEventListener('hashchange',onHash)});
 
   const d=i=>time().displayDigits[i];
   const motion=i=>{const t=transition(),order=t.changed.indexOf(i),old=t.previousDisplay[i],next=t.nextDisplay[i],wrap=old==='9'&&next==='0',distance=t.special?1.7:wrap?1.42:order>0?1.02:.72;return {seq:t.seq,delay:order<0?0:t.delays[i],distance,wrap,carry:order>0,special:t.special}};
 
   return <>
+    <Show when={selected()==='clock'} fallback={<MathLibrary/>}>
     <main class={`screen${transition().special?' special-event':''}`} data-special={transition().special||''}>
       <div class="clock" aria-label={`Current local time ${time().text} ${time().period}, ${time().zone}`}>
         <span class="time-group"><AnimatedDigit value={d(0)} motion={motion(0)}/><AnimatedDigit value={d(1)} motion={motion(1)}/></span><i>:</i>
@@ -56,6 +67,7 @@ export default function App(){
       </div>
       <div class="diagrams"><div class="diagram-wrap"><LambdaDisplay digits={time().digits} transition={transition()}/></div><div class="period-diagram-wrap"><LambdaDisplay period={time().period} transition={transition()}/></div></div>
     </main>
-    <SideMenu open={menuOpen()} onOpenChange={setMenuOpen} items={MENU_ITEMS} selected="clock" onSelect={()=>setMenuOpen(false)}/>
+    </Show>
+    <SideMenu open={menuOpen()} onOpenChange={setMenuOpen} items={MENU_ITEMS} selected={selected()} onSelect={selectPage}/>
   </>;
 }
