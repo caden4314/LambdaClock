@@ -14,10 +14,26 @@ export function springStep(state,target,dt,{frequency=8,damping=1}={}){
 
 export function exponentialSmoothing(current,target,dt,speed=10){return lerp(current,target,1-Math.exp(-Math.max(0,speed)*dt))}
 
-export function withGlow(ctx,amount,draw,{alpha=.3,quality=1}={}){
-  const q=clamp(Number(quality)||1,.35,1);
-  if(!amount||q<.58){draw();return}
-  ctx.save();ctx.shadowColor=`rgba(255,255,255,${clamp(alpha)*q})`;ctx.shadowBlur=Math.max(0,amount*(.55+.45*q));draw();ctx.restore();
+export function resolveGlowStyle(amount,{alpha=.3,quality=1}={}){
+  const q=clamp(Number(quality)||1,.35,1),a=Math.max(0,Number(amount)||0);
+  return {
+    glow:true,
+    alphaScale:clamp(alpha)*(.55+.25*q),
+    widthScale:1+a*(.16+.04*q),
+    sizeScale:1+a*(.045+.015*q)
+  };
+}
+
+export function withGlow(ctx,amount,draw,{alpha=.3,quality=1,mode='fast'}={}){
+  const q=clamp(Number(quality)||1,.35,1),a=Math.max(0,Number(amount)||0);
+  if(!a||q<.42){draw({glow:false,alphaScale:1,widthScale:1,sizeScale:1});return}
+  if(mode==='native'){
+    ctx.save();ctx.shadowColor=`rgba(255,255,255,${clamp(alpha)*q})`;ctx.shadowBlur=a*(.55+.45*q);
+    draw({glow:false,alphaScale:1,widthScale:1,sizeScale:1});ctx.restore();return;
+  }
+  const style=resolveGlowStyle(a,{alpha,quality:q});
+  ctx.save();ctx.globalCompositeOperation='lighter';draw(style);ctx.restore();
+  draw({glow:false,alphaScale:1,widthScale:1,sizeScale:1});
 }
 
 export function drawScanlines(ctx,{width,height,spacing=4,alpha=.045,offset=0}={}){
