@@ -7,7 +7,8 @@
     "build": "vite build",
     "backend": "node server/server.mjs",
     "check": "node --check server/server.mjs && vite build",
-    "test:lambda-math": "node scripts/lambda-math-check.mjs"
+    "test:lambda-math": "node scripts/lambda-math-check.mjs",
+    "test:display": "node scripts/display-check.mjs"
   },
   "engines": {
     "node": ">=20"
