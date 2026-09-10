@@ -32,9 +32,9 @@ void main(){
   float edge=clamp(r/radius,0.,1.);light*=1.-uGlass*edge*edge;
   vec3 mapped=1.-exp(-max(light,0.)*uExposure);
   float px=1.15/min(uResolution.x,uResolution.y);
-  float grid=.0;grid+=ring(r,radius/3.,px)*.024;grid+=ring(r,radius*2./3.,px)*.021;grid+=ring(r,radius,px)*.10;
-  grid+=(1.-smoothstep(px,px*2.,abs(q.x)))*.42;grid+=(1.-smoothstep(px,px*2.,abs(q.y)))*.42;
-  for(int i=0;i<24;i++){float a=float(i)*6.28318530718/24.;vec2 d=vec2(cos(a),sin(a));float radial=abs(dot(q,vec2(-d.y,d.x)));float along=dot(q,d);float tick=step(radius-.018-(mod(float(i),6.)==0.?0.012:0.),along)*step(along,radius)* (1.-smoothstep(px,px*2.,radial));grid+=tick*.035;}
+  float grid=.0;grid+=ring(r,radius/3.,px)*.0012;grid+=ring(r,radius*2./3.,px)*.0010;grid+=ring(r,radius,px)*.0025;
+  grid+=(1.-smoothstep(px,px*2.,abs(q.x)))*.0045;grid+=(1.-smoothstep(px,px*2.,abs(q.y)))*.0045;
+  for(int i=0;i<24;i++){float a=float(i)*6.28318530718/24.;vec2 d=vec2(cos(a),sin(a));float radial=abs(dot(q,vec2(-d.y,d.x)));float along=dot(q,d);float tick=step(radius-.018-(mod(float(i),6.)==0.?0.012:0.),along)*step(along,radius)* (1.-smoothstep(px,px*2.,radial));grid+=tick*.0018;}
   mapped+=vec3(grid);
   float vignette=1.-.22*pow(edge,2.7);mapped*=vignette;
   outColor=vec4(pow(clamp(mapped,0.,1.),vec3(1./2.2)),1.);
@@ -89,7 +89,7 @@ export class CRTPhosphorRenderer{
     }
     const head=points[points.length-1];
     if(head?.energy>.0001){
-      const data=new Float32Array([head.x/(this.width/dpr)*2-1,1-head.y/(this.height/dpr)*2,head.energy*1.65,Math.max(1,head.radius*dpr*1.18)]);
+      const data=new Float32Array([head.x/(this.width/dpr)*2-1,1-head.y/(this.height/dpr)*2,head.energy*2.35,Math.max(1,head.radius*dpr*1.18)]);
       gl.useProgram(this.beamProgram);gl.bindBuffer(gl.ARRAY_BUFFER,this.beamBuffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
       const stride=16,pos=gl.getAttribLocation(this.beamProgram,'aPosition'),energy=gl.getAttribLocation(this.beamProgram,'aEnergy'),radius=gl.getAttribLocation(this.beamProgram,'aRadius');
       gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,2,gl.FLOAT,false,stride,0);gl.enableVertexAttribArray(energy);gl.vertexAttribPointer(energy,1,gl.FLOAT,false,stride,8);gl.enableVertexAttribArray(radius);gl.vertexAttribPointer(radius,1,gl.FLOAT,false,stride,12);
