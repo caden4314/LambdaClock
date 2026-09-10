@@ -7,6 +7,7 @@ export {
   addWord,runWordExpression,decodeWordClosure,decodeWord,
   fixedFromNumber,fixedToNumber,CORDIC_ATAN_RAD,CORDIC_K_INV,
   cordicRotationTerm,decodeTripleWords,runCordicSinCos,
+  CORDIC_K_SHIFT_TERMS,cordicScaleWord,cordicVectorRotationTermRaw,runCordicRotatePairRaw,
   runAlu,runArithmeticShift
 } from './library.js';
 

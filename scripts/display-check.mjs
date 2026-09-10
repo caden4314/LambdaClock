@@ -7,7 +7,8 @@ import {resolveHighResSize} from '../frontend/src/display/highres.js';
 import {createRingBuffer,findTriggerIndex,triggerWindow} from '../frontend/src/display/scope.js';
 import {sampleSignal,magnitudeSpectrum,dominantFrequency,nextPowerOfTwo,createFFTPlan,createSpectrumAnalyzer} from '../frontend/src/display/signal.js';
 import {cartesianTransform} from '../frontend/src/display/plot.js';
-import {rotatePoint3D,cubeProjection} from '../frontend/src/display/cube.js';
+import {rotatePoint3D,cubeProjection,cubeBeamPath} from '../frontend/src/display/cube.js';
+import {createBeamPath,measureBeamPath,sampleBeamHead,phosphorDecayForHalfLife} from '../frontend/src/display/phosphor.js';
 
 const assert=(ok,message)=>{if(!ok)throw new Error(message)};
 const close=(a,b,eps=1e-6)=>Math.abs(a-b)<=eps;
@@ -32,4 +33,6 @@ const analyzer=createSpectrumAnalyzer({fftSize:1024,sampleRate}),first=analyzer.
 const transform=cartesianTransform({xMin:-1,xMax:1,yMin:-1,yMax:1,width:100,height:100}),origin=transform.toCanvas(0,0);assert(close(origin[0],50)&&close(origin[1],50),'Cartesian transform origin');
 const quarter=rotatePoint3D([1,0,0],{sinZ:1,cosZ:0});assert(close(quarter[0],0)&&close(quarter[1],1)&&close(quarter[2],0),'cube rotates from supplied coefficients');
 const cube=cubeProjection({sinX:0,cosX:1,sinY:0,cosY:1,sinZ:0,cosZ:1},{width:640,height:480});assert(cube.length===8&&cube.every(point=>point.every(Number.isFinite)),'cube projection yields eight finite XY vertices');
+const beamPath=cubeBeamPath([[1,0,0],[0,1,0],[0,0,1]],{width:640,height:480,blankRetrace:true});const measuredBeam=measureBeamPath(beamPath);assert(beamPath.length>=12&&measuredBeam.total>0,'cube produces a non-empty CRT beam path');assert(beamPath.some(segment=>segment.blanked),'cube path includes blanked retrace segments');const beamHead=sampleBeamHead(beamPath,.25);assert(beamHead&&Number.isFinite(beamHead.x)&&Number.isFinite(beamHead.y),'beam head samples finite XY coordinates');
+const halfLife=.24,fadeWhole=phosphorDecayForHalfLife(halfLife,halfLife),fadeHalf=phosphorDecayForHalfLife(halfLife/2,halfLife);assert(close(fadeWhole,.5,1e-9),'phosphor loses half its stored light over one half-life');assert(close((1-fadeHalf)*(1-fadeHalf),.5,1e-9),'phosphor decay is refresh-rate independent');
 console.log(`Display system self-test passed; FFT peak=${peak.frequency}Hz; hi-res=${high.pixelWidth}x${high.pixelHeight}; live=${live.pixelWidth}x${live.pixelHeight}; cube=${cube.length} vertices; fast-glow=${glow.widthScale.toFixed(2)}x`);

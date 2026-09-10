@@ -5,6 +5,7 @@ function runtimeOptions(props){
   return {
     background:props.background??'#000',
     persistence:props.persistence??0,
+    persistenceHalfLife:props.persistenceHalfLife??0,
     paused:!!props.paused,
     maxDpr:props.maxDpr??2.5,
     maxPixels:props.maxPixels??1_500_000,

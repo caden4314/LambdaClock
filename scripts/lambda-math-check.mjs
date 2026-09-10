@@ -1,4 +1,4 @@
-import {runAlu,runArithmeticShift,runCordicSinCos,wordView,cordicView} from '../frontend/src/lambda-math/index.js';
+import {runAlu,runArithmeticShift,runCordicSinCos,runCordicRotatePairRaw,wordView,cordicView} from '../frontend/src/lambda-math/index.js';
 
 const expect=(actual,want,label)=>{if(actual!==want)throw new Error(`${label}: ${actual} !== ${want}`)};
 const aluCases=[
@@ -23,9 +23,19 @@ for(const deg of [-90,-60,-30,0,30,45,60,90]){
   const cosError=Math.abs(out.cos-Math.cos(rad));
   maxError=Math.max(maxError,sinError,cosError);
   maxBeta=Math.max(maxBeta,out.beta);
-  if(sinError>.0012||cosError>.0012)throw new Error(`CORDIC ${deg}° error: sin=${sinError}, cos=${cosError}`);
-  if(out.beta<=0)throw new Error(`CORDIC ${deg}°: no beta reductions recorded`);
+  if(sinError>.0012||cosError>.0012)throw new Error(`CORDIC ${deg}Â° error: sin=${sinError}, cos=${cosError}`);
+  if(out.beta<=0)throw new Error(`CORDIC ${deg}Â°: no beta reductions recorded`);
   const view=cordicView(out);
-  if(view.x.binary.length!==16||view.y.binary.length!==16||view.stats.beta<=0)throw new Error(`CORDIC ${deg}°: invalid display view`);
+  if(view.x.binary.length!==16||view.y.binary.length!==16||view.stats.beta<=0)throw new Error(`CORDIC ${deg}Â°: invalid display view`);
 }
-console.log(`Lambda math self-test passed; max CORDIC error=${maxError.toFixed(9)}, max beta=${maxBeta}`);
+let maxVectorError=0;
+const vectorScale=8192;
+for(const deg of [-60,-30,0,30,60]){
+  const rad=deg*Math.PI/180,angleRaw=Math.round(rad*vectorScale);
+  const out=runCordicRotatePairRaw(vectorScale,0,angleRaw,{iterations:10});
+  const error=Math.max(Math.abs(out.x-Math.cos(rad)),Math.abs(out.y-Math.sin(rad)));
+  maxVectorError=Math.max(maxVectorError,error);
+  if(error>.003)throw new Error(`vector CORDIC ${deg}° error: ${error}`);
+  if(out.beta<=0)throw new Error(`vector CORDIC ${deg}°: no beta reductions recorded`);
+}
+console.log(`Lambda math self-test passed; max CORDIC error=${maxError.toFixed(9)}, vector error=${maxVectorError.toFixed(9)}, max beta=${maxBeta}`);

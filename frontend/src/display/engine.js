@@ -22,7 +22,7 @@ export function createDisplayRuntime(canvas,options={}){
     scene:null,running:false,destroyed:false,visible:true,pageVisible:!globalThis.document?.hidden,
     width:1,height:1,dpr:1,requestedDpr:1,pixelCount:1,last:clock(),elapsed:0,frame:0,fps:0,renderMs:0,
     quality:1,lastAdapt:0,badWindows:0,goodWindows:0,nextFrameAt:0,resizeDirty:true,
-    options:{background:'#000',persistence:0,maxDpr:2.5,maxPixels:1_500_000,resolutionScale:1,adaptiveResolution:true,minQuality:.55,maxFps:0,paused:false,...options}
+    options:{background:'#000',persistence:0,persistenceHalfLife:0,maxDpr:2.5,maxPixels:1_500_000,resolutionScale:1,adaptiveResolution:true,minQuality:.55,maxFps:0,paused:false,...options}
   };
   let unsubscribeFrame=null,resizeObserver=null,intersectionObserver=null,media=null;
 
@@ -45,14 +45,16 @@ export function createDisplayRuntime(canvas,options={}){
     }else ctx.setTransform(state.dpr,0,0,state.dpr,0,0);
   }
 
-  function background(){
+  function background(dt=1/60){
+    const halfLife=Math.max(0,Number(state.options.persistenceHalfLife)||0);
     const p=clamp(state.options.persistence??0,0,.985);
-    if(p<=.001){
+    if(halfLife<=0&&p<=.001){
       ctx.clearRect(0,0,state.width,state.height);
       if(state.options.background){ctx.fillStyle=state.options.background;ctx.fillRect(0,0,state.width,state.height)}
       return;
     }
-    ctx.save();ctx.globalCompositeOperation='source-over';ctx.globalAlpha=Math.max(.015,1-p);ctx.fillStyle=state.options.background??'#000';ctx.fillRect(0,0,state.width,state.height);ctx.restore();
+    const fade=halfLife>0?1-Math.pow(.5,Math.max(0,dt)/Math.max(.001,halfLife)):Math.max(.015,1-p);
+    ctx.save();ctx.globalCompositeOperation='source-over';ctx.globalAlpha=clamp(fade,.002,1);ctx.fillStyle=state.options.background??'#000';ctx.fillRect(0,0,state.width,state.height);ctx.restore();
   }
 
   function active(){return state.running&&!state.destroyed&&state.visible&&state.pageVisible&&!state.options.paused}
@@ -91,7 +93,7 @@ export function createDisplayRuntime(canvas,options={}){
     const rawDt=Math.max(0,(timestamp-state.last)/1000),dt=Math.min(.05,rawDt||1/60);state.last=timestamp;state.elapsed+=dt;state.frame++;
     state.fps=state.fps?lerp(state.fps,1/Math.max(dt,.0001),.08):1/Math.max(dt,.0001);
     const started=clock();
-    background();ctx.save();
+    background(dt);ctx.save();
     const scheduler=getDisplaySchedulerStats();
     state.scene?.render?.({ctx,width:state.width,height:state.height,dpr:state.dpr,pixelWidth:canvas.width,pixelHeight:canvas.height,time:state.elapsed,dt,frame:state.frame,fps:state.fps,quality:state.quality,reducedMotion:!!media?.matches,runtime:api,scheduler});
     ctx.restore();
