@@ -9,10 +9,10 @@ export default function HighResCanvas(props){
     background={props.background??'#000'}
     resolutionScale={scale()}
     maxDpr={props.maxDpr??8}
-    maxPixels={props.maxPixels??2_000_000}
+    maxPixels={props.maxPixels??1_250_000}
     adaptiveResolution={props.adaptiveResolution!==false}
-    minQuality={props.minQuality??.5}
-    maxFps={props.maxFps??60}
+    minQuality={props.minQuality??.45}
+    maxFps={props.maxFps??0}
     onReady={props.onReady}
     class={`high-res-canvas${props.class?` ${props.class}`:''}`}
     label={props.label??`High-resolution ${scale()}x canvas`}
