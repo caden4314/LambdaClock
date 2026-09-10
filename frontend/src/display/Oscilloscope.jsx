@@ -20,8 +20,8 @@ export default function Oscilloscope(props){
     for(let i=0;i<sources.length;i++)sampleSignalInto(buffers[i],sources[i],{sampleRate,startTime:start});
     const anchor=findTriggerAnchor(buffers[0],{count:sampleCount,level:props.triggerLevel??0,edge:props.triggerEdge??'rising',pretrigger:props.pretrigger??.18});
     for(let i=0;i<views.length;i++){const view=views[i];view.samples=buffers[i];view.start=anchor;view.count=sampleCount;view.alpha=i ? .5 : 1;view.scale=props.scale??.39;view.lineWidth=i?1:1.45;view.offset=props.offsets?.[i]??0}
-    const draw=()=>drawOscilloscope(ctx,{width,height,channels:views,graticule:props.graticule!==false,triggerX:props.pretrigger??.18});
-    props.glow===false?draw():withGlow(ctx,8,draw,{alpha:.22,quality:q});if(props.scanlines)drawScanlines(ctx,{width,height,spacing:4,alpha:.045,offset:time*12});drawVignette(ctx,{width,height,strength:.28});
+    const draw=(style={})=>drawOscilloscope(ctx,{width,height,channels:views,graticule:props.graticule!==false&&!style.glow,triggerX:props.pretrigger??.18,widthScale:style.widthScale??1,alphaScale:style.alphaScale??1});
+    props.glow===false?draw():withGlow(ctx,8,draw,{alpha:.22,quality:q,mode:props.glowMode??'fast'});if(props.scanlines)drawScanlines(ctx,{width,height,spacing:4,alpha:.045,offset:time*12});drawVignette(ctx,{width,height,strength:.28});
   }};
   return <DisplayCanvas scene={scene} paused={props.paused} persistence={props.persistence??.86} background={props.background??'#000'} resolutionScale={props.resolutionScale??1} maxDpr={props.maxDpr??2.5} maxPixels={props.maxPixels??1_250_000} adaptiveResolution={props.adaptiveResolution!==false} maxFps={props.maxFps??0} class={props.class} label={props.label??'Oscilloscope display'}/>;
 }
