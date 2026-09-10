@@ -26,9 +26,9 @@ void main(){
   float edge=clamp(r/radius,0.,1.);light*=1.-uGlass*edge*edge;
   vec3 mapped=1.-exp(-max(light,0.)*uExposure);
   float px=1.15/min(uResolution.x,uResolution.y);
-  float grid=.0;grid+=ring(r,radius/3.,px)*.032;grid+=ring(r,radius*2./3.,px)*.027;grid+=ring(r,radius,px)*.18;
-  grid+=1.-smoothstep(px,px*2.,abs(q.x));grid+=1.-smoothstep(px,px*2.,abs(q.y));
-  for(int i=0;i<24;i++){float a=float(i)*6.28318530718/24.;vec2 d=vec2(cos(a),sin(a));float radial=abs(dot(q,vec2(-d.y,d.x)));float along=dot(q,d);float tick=step(radius-.018-(mod(float(i),6.)==0.?0.012:0.),along)*step(along,radius)* (1.-smoothstep(px,px*2.,radial));grid+=tick*.055;}
+  float grid=.0;grid+=ring(r,radius/3.,px)*.024;grid+=ring(r,radius*2./3.,px)*.021;grid+=ring(r,radius,px)*.10;
+  grid+=(1.-smoothstep(px,px*2.,abs(q.x)))*.42;grid+=(1.-smoothstep(px,px*2.,abs(q.y)))*.42;
+  for(int i=0;i<24;i++){float a=float(i)*6.28318530718/24.;vec2 d=vec2(cos(a),sin(a));float radial=abs(dot(q,vec2(-d.y,d.x)));float along=dot(q,d);float tick=step(radius-.018-(mod(float(i),6.)==0.?0.012:0.),along)*step(along,radius)* (1.-smoothstep(px,px*2.,radial));grid+=tick*.035;}
   vec3 glassTint=vec3(.010,.014,.009);mapped+=vec3(grid);mapped+=glassTint*(1.-edge*.55);
   float vignette=1.-.22*pow(edge,2.7);mapped*=vignette;
   outColor=vec4(pow(clamp(mapped,0.,1.),vec3(1./2.2)),1.);
