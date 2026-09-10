@@ -33,17 +33,17 @@ export function drawScopeGraticule(ctx,{x=0,y=0,width,height,xDiv=10,yDiv=8,alph
   ctx.globalAlpha=axisAlpha*.55;ctx.setLineDash([2,6]);ctx.beginPath();ctx.moveTo(x,cy);ctx.lineTo(x+w,cy);ctx.stroke();ctx.restore();
 }
 
-export function drawOscilloscope(ctx,{x=0,y=0,width,height,channels=[],lineWidth=1.35,alpha=1,graticule=true,triggerX=.18}={}){
-  const w=width??ctx.canvas.clientWidth,h=height??ctx.canvas.clientHeight;if(graticule)drawScopeGraticule(ctx,{x,y,width:w,height:h});
+export function drawOscilloscope(ctx,{x=0,y=0,width,height,channels=[],lineWidth=1.35,alpha=1,graticule=true,triggerX=.18,widthScale=1,alphaScale=1}={}){
+  const w=width??ctx.canvas.clientWidth,h=height??ctx.canvas.clientHeight,ws=Math.max(.1,widthScale),as=Math.max(0,alphaScale);if(graticule)drawScopeGraticule(ctx,{x,y,width:w,height:h});
   for(let index=0;index<channels.length;index++){
     const raw=channels[index],channel=raw&&raw.samples!==undefined?raw:{samples:raw},data=channel.samples||[],start=Math.max(0,Math.trunc(channel.start??0)),available=Math.max(0,(data.length??0)-start),count=Math.min(available,Math.max(0,Math.trunc(channel.count??available)));if(count<2)continue;
-    ctx.save();ctx.strokeStyle='#fff';ctx.globalAlpha=channel.alpha??(index?0.48:alpha);ctx.lineWidth=channel.lineWidth??lineWidth;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();const scale=channel.scale??.42,offset=channel.offset??0;
+    ctx.save();ctx.strokeStyle='#fff';ctx.globalAlpha=(channel.alpha??(index?0.48:alpha))*as;ctx.lineWidth=(channel.lineWidth??lineWidth)*ws;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();const scale=channel.scale??.42,offset=channel.offset??0;
     for(let i=0;i<count;i++){const px=x+w*i/(count-1),py=y+h*(.5+offset)-clamp(Number(data[start+i]??0),-2,2)*h*scale;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.stroke();ctx.restore();
   }
-  ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#fff';ctx.lineWidth=1;const tx=x+w*clamp(triggerX,0,1);ctx.beginPath();ctx.moveTo(tx,y);ctx.lineTo(tx,y+7);ctx.stroke();ctx.restore();
+  if(as>=.99){ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#fff';ctx.lineWidth=1;const tx=x+w*clamp(triggerX,0,1);ctx.beginPath();ctx.moveTo(tx,y);ctx.lineTo(tx,y+7);ctx.stroke();ctx.restore()}
 }
 
-export function drawXYScope(ctx,{x=0,y=0,width,height,xSamples=[],ySamples=[],count,start=0,lineWidth=1.2,alpha=.9,scale=.43}={}){
+export function drawXYScope(ctx,{x=0,y=0,width,height,xSamples=[],ySamples=[],count,start=0,lineWidth=1.2,alpha=.9,scale=.43,widthScale=1,alphaScale=1}={}){
   const w=width??ctx.canvas.clientWidth,h=height??ctx.canvas.clientHeight,offset=Math.max(0,Math.trunc(start)),available=Math.max(0,Math.min(xSamples.length,ySamples.length)-offset),n=Math.min(available,Math.max(0,Math.trunc(count??available)));if(n<2)return;
-  ctx.save();ctx.strokeStyle='#fff';ctx.globalAlpha=alpha;ctx.lineWidth=lineWidth;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();for(let i=0;i<n;i++){const px=x+w*.5+clamp(Number(xSamples[offset+i]??0),-1.2,1.2)*w*scale,py=y+h*.5-clamp(Number(ySamples[offset+i]??0),-1.2,1.2)*h*scale;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.stroke();ctx.restore();
+  ctx.save();ctx.strokeStyle='#fff';ctx.globalAlpha=alpha*Math.max(0,alphaScale);ctx.lineWidth=lineWidth*Math.max(.1,widthScale);ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();for(let i=0;i<n;i++){const px=x+w*.5+clamp(Number(xSamples[offset+i]??0),-1.2,1.2)*w*scale,py=y+h*.5-clamp(Number(ySamples[offset+i]??0),-1.2,1.2)*h*scale;i?ctx.lineTo(px,py):ctx.moveTo(px,py)}ctx.stroke();ctx.restore();
 }
