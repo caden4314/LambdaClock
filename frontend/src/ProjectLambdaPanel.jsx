@@ -1,4 +1,4 @@
-import {createMemo} from 'solid-js';
+import {createMemo,createSignal,Show} from 'solid-js';
 import LambdaDisplay from './LambdaDisplay.jsx';
 
 const V=(binder,key)=>({t:'v',binder,key});
@@ -106,12 +106,33 @@ function termFor(props){
   return iOp('fallback:I');
 }
 
+function initialView(){
+  try{return localStorage.getItem('lambda-view-mode')==='formula'?'formula':'live'}catch{return 'live'}
+}
+const [lambdaViewMode,setLambdaViewMode]=createSignal(initialView());
+function chooseLambdaView(mode){
+  setLambdaViewMode(mode);
+  try{localStorage.setItem('lambda-view-mode',mode)}catch{}
+}
+
 export default function ProjectLambdaPanel(props){
   const root=createMemo(()=>termFor(props));
   return <section class="project-lambda-panel" aria-label="Lambda term visualization">
-    <div class="project-lambda-canvas">
-      <LambdaDisplay root={root()} label={props.label||'Interactive Tromp-style lambda term'}/>
+    <div class="lambda-view-toggle" role="tablist" aria-label="Lambda display mode">
+      <button type="button" role="tab" aria-selected={lambdaViewMode()==='live'} class={lambdaViewMode()==='live'?'active':''} onClick={()=>chooseLambdaView('live')}>Live Lambda</button>
+      <button type="button" role="tab" aria-selected={lambdaViewMode()==='formula'} class={lambdaViewMode()==='formula'?'active':''} onClick={()=>chooseLambdaView('formula')}>Formula</button>
     </div>
-    <code class="project-lambda-expression">{props.expression}</code>
+    <div class="lambda-view-stage">
+      <Show when={lambdaViewMode()==='live'} fallback={
+        <div class="project-formula-view">
+          <small>current expression</small>
+          <code>{props.expression}</code>
+        </div>
+      }>
+        <div class="project-lambda-canvas">
+          <LambdaDisplay root={root()} label={props.label||'Interactive Tromp-style lambda term'}/>
+        </div>
+      </Show>
+    </div>
   </section>;
 }
