@@ -1,5 +1,6 @@
 import {createSignal,onCleanup,onMount} from 'solid-js';
 import {DisplayCanvas,LambdaSurface,drawDotMatrix,drawPixelGrid,drawWave,drawGrid,drawScanlines,drawVignette,withGlow,pulse,sampleWave,clamp} from './display/index.js';
+import './display/display.css';
 
 const digitsOf=n=>String(Math.abs(Math.trunc(n))%1_000_000).padStart(6,'0').split('').map(Number);
 function transitionFor(previous,next,seq){
