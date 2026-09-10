@@ -1,4 +1,4 @@
-﻿import {createSignal,onCleanup,onMount} from 'solid-js';
+import {createSignal,onCleanup,onMount} from 'solid-js';
 import {PhosphorCRTDisplay,LambdaSurface,cubeBeamPath,exponentialSmoothing} from './display/index.js';
 import './lambda-cube.css';
 
@@ -13,7 +13,7 @@ function transitionFor(previous,next,seq){
 const fixed=value=>Number(value||0).toFixed(5),vectorText=vector=>`[${(vector||[]).map(value=>Number(value||0).toFixed(3)).join(', ')}]`;
 
 export default function LambdaCube(){
-  const [paused,setPaused]=createSignal(false),[speed,setSpeed]=createSignal(1),[beamRate,setBeamRate]=createSignal(3.2),[beamCurrent,setBeamCurrent]=createSignal(1),[persistence,setPersistence]=createSignal(1),[phosphor,setPhosphor]=createSignal('P7'),[blankRetrace,setBlankRetrace]=createSignal(true),[metrics,setMetrics]=createSignal(initialMetrics);
+  const [paused,setPaused]=createSignal(false),[speed,setSpeed]=createSignal(1),[beamRate,setBeamRate]=createSignal(3.2),[beamCurrent,setBeamCurrent]=createSignal(1.35),[persistence,setPersistence]=createSignal(1),[phosphor,setPhosphor]=createSignal('P7'),[blankRetrace,setBlankRetrace]=createSignal(true),[metrics,setMetrics]=createSignal(initialMetrics);
   const [lambdaDigits,setLambdaDigits]=createSignal([0,0,0,0,0,0]),[lambdaTransition,setLambdaTransition]=createSignal(transitionFor([0,0,0,0,0,0],[0,0,0,0,0,0],0));
   let worker=null,lambdaSeq=0,crtApi=null;const targetBasis=identity(),currentBasis=identity();
   function cubePath(frame){

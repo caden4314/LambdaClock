@@ -1,4 +1,4 @@
-﻿import {clamp} from './engine.js';
+import {clamp} from './engine.js';
 import {resolvePhosphorModel,phosphorDose} from './phosphor-models.js';
 
 const mod1=x=>((x%1)+1)%1;
@@ -40,7 +40,7 @@ export function advanceCRTBeam(state,path,dt,{model='P7',beamRate=3.2,beamCurren
     const cx=width*.5,cy=height*.5,r=Math.min(width,height)*.465,edge=clamp(Math.hypot(state.x-cx,state.y-cy)/Math.max(1,r));
     const screenGain=1-m.edgeLoss*edge*edge,dose=phosphorDose({beamCurrent:(beamCurrent??m.beamCurrent)*state.z,velocity});
     const flicker=.985+.015*Math.sin((state.sample++*.754877666+state.phase*31.7)*Math.PI*2);
-    const energy=dose*screenGain*flicker*Math.max(.2,h*240),radius=m.spotRadius*(1+m.bloom*Math.sqrt(Math.max(0,dose)))*(1+.11*edge*edge);
+    const energy=dose*screenGain*flicker*Math.max(.42,h*420),radius=m.spotRadius*(1+m.bloom*Math.sqrt(Math.max(0,dose)))*(1+.11*edge*edge);
     if(energy>.0002)points.push({x:state.x,y:state.y,energy,radius,blanked:target.blanked});
   }
   return points;
