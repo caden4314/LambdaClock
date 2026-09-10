@@ -120,3 +120,27 @@ button{font:inherit}
 @keyframes lambdaViewIn{0%{opacity:0;transform:translate3d(0,7px,0);filter:blur(2px)}100%{opacity:1;transform:none;filter:blur(0)}}
 @media(max-width:720px){.lambda-view-toggle{padding:5px}.lambda-view-toggle button{min-height:44px;font-size:9px}.lambda-view-stage{height:clamp(190px,30vh,280px);min-height:190px}.project-formula-view{gap:13px;padding:20px 15px}.project-formula-view code{font-size:clamp(12px,4vw,17px);line-height:1.55}}
 @media(prefers-reduced-motion:reduce){.lambda-view-toggle button{transition-duration:.01ms!important}.lambda-view-stage>.project-lambda-canvas,.lambda-view-stage>.project-formula-view{animation:none!important}}
+
+/* major project: infinite zeta engine */
+.zeta-body{gap:18px;justify-content:flex-start}
+.zeta-head code{font-size:12px}
+.zeta-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+.zeta-plane-wrap{position:relative;width:100%;height:min(56vh,560px);min-height:340px;border:1px solid rgba(255,255,255,.14);overflow:hidden;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.026),transparent 62%)}
+.zeta-plane{display:block;width:100%;height:100%;background:#000}
+.zeta-plane-readout{position:absolute;left:16px;bottom:14px;display:flex;flex-direction:column;gap:4px;padding:9px 11px;background:rgba(0,0,0,.62);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(8px);pointer-events:none}
+.zeta-plane-readout small{font-size:9px;letter-spacing:.08em;opacity:.42}
+.zeta-plane-readout strong{font-size:clamp(13px,2vw,20px);font-weight:400}
+.zeta-plane-readout span{font-size:9px;opacity:.42}
+.zeta-controls{display:grid;grid-template-columns:2fr 1fr;gap:28px;width:100%}
+.zeta-actions{justify-content:center!important}
+.zeta-presets{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.zeta-preset{min-height:56px;border:1px solid rgba(255,255,255,.13);background:#000;color:rgba(255,255,255,.62);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;cursor:pointer;transition:.2s ease}
+.zeta-preset:hover,.zeta-preset:focus-visible{color:#000;background:#fff;border-color:#fff;outline:none}
+.zeta-preset span{font-size:12px}.zeta-preset code{font-size:10px;opacity:.62}
+.zeta-theory{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;padding:16px 18px;border-top:1px solid rgba(255,255,255,.1);border-bottom:1px solid rgba(255,255,255,.1);text-align:center}
+.zeta-theory code{font-size:clamp(11px,1.7vw,16px);line-height:1.55;overflow-wrap:anywhere}
+.zeta-theory span{font-size:9px;letter-spacing:.1em;text-transform:uppercase;opacity:.34}
+.zeta-page .project-formula-view code{white-space:pre-line}
+@media(max-width:860px){.zeta-metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.zeta-controls{grid-template-columns:1fr}.zeta-presets{grid-template-columns:repeat(2,minmax(0,1fr))}.zeta-plane-wrap{height:48vh;min-height:300px}}
+@media(max-width:520px){.zeta-metrics{grid-template-columns:1fr 1fr}.zeta-metrics .metric:first-child{grid-column:1/-1}.zeta-plane-wrap{height:44vh;min-height:270px}.zeta-plane-readout{left:8px;right:8px;bottom:8px}.zeta-presets{grid-template-columns:1fr 1fr}.zeta-preset{min-height:52px;padding:8px}.zeta-theory{padding:13px 10px}.zeta-actions .lab-button{flex:1 1 30%}}
+@media(prefers-reduced-motion:reduce){.zeta-preset{transition-duration:.01ms!important}}

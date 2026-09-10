@@ -1,6 +1,7 @@
 import {createEffect,createMemo,createSignal,For,Match,onCleanup,onMount,Show,Switch} from 'solid-js';
 import ProjectLambdaPanel from './ProjectLambdaPanel.jsx';
 import {LambdaOrbit,CollatzLoop,FeedbackOscillator} from './LoopProjects.jsx';
+import ZetaEngine from './ZetaEngine.jsx';
 
 export const PROJECTS=[
   {id:'clock',name:'Clock',note:'Church time'},
@@ -8,6 +9,7 @@ export const PROJECTS=[
   {id:'booleans',name:'Boolean Lab',note:'truth-table loop'},
   {id:'arithmetic',name:'Arithmetic',note:'operand iterator'},
   {id:'fibonacci',name:'Fibonacci',note:'pair recursion'},
+  {id:'zeta',name:'Zeta Engine',note:'infinite critical-line series'},
   {id:'wave',name:'Wave',note:'composed oscillator'},
   {id:'binary',name:'Binary',note:'boolean counter'},
   {id:'combinators',name:'Combinators',note:'S K I reduction loop'},
@@ -126,7 +128,7 @@ function Automata(){
 
 export default function LambdaProject(props){return <Switch fallback={<Counter/>}>
   <Match when={props.id==='counter'}><Counter/></Match><Match when={props.id==='booleans'}><BooleanLab/></Match><Match when={props.id==='arithmetic'}><Arithmetic/></Match>
-  <Match when={props.id==='fibonacci'}><Fibonacci/></Match><Match when={props.id==='wave'}><Wave/></Match><Match when={props.id==='binary'}><Binary/></Match>
+  <Match when={props.id==='fibonacci'}><Fibonacci/></Match><Match when={props.id==='zeta'}><ZetaEngine/></Match><Match when={props.id==='wave'}><Wave/></Match><Match when={props.id==='binary'}><Binary/></Match>
   <Match when={props.id==='combinators'}><Combinators/></Match><Match when={props.id==='recursion'}><RecursionTree/></Match><Match when={props.id==='automata'}><Automata/></Match>
   <Match when={props.id==='orbit'}><LambdaOrbit/></Match><Match when={props.id==='collatz'}><CollatzLoop/></Match><Match when={props.id==='oscillator'}><FeedbackOscillator/></Match>
 </Switch>}
