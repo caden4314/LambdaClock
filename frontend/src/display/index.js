@@ -3,5 +3,12 @@ export {normalizeValues,sampleWave,drawDotMatrix,drawPixelGrid,drawWave,drawGrid
 export {smoothstep,smootherstep,pulse,triangle,springStep,exponentialSmoothing,withGlow,drawScanlines,drawVignette,flashEnvelope} from './effects.js';
 export {displayLayer,createScene} from './scene.js';
 export {rasterizeDotText,scrollDotRaster} from './dotfont.js';
+export {resolveHighResSize,createHighResCanvas,renderHighRes,highResBlob} from './highres.js';
+export {createRingBuffer,findTriggerIndex,triggerWindow,drawScopeGraticule,drawOscilloscope,drawXYScope} from './scope.js';
+export {nextPowerOfTwo,hannWindow,sampleSignal,fftReal,magnitudeSpectrum,dominantFrequency,normalizeSpectrum} from './signal.js';
+export {cartesianTransform,drawAxes,drawFunctionPlot,drawVectorField,mapToViewport} from './plot.js';
 export {default as DisplayCanvas} from './DisplayCanvas.jsx';
+export {default as HighResCanvas} from './HighResCanvas.jsx';
+export {default as Oscilloscope} from './Oscilloscope.jsx';
+export {default as SpectrumDisplay} from './SpectrumDisplay.jsx';
 export {default as LambdaSurface} from './LambdaSurface.jsx';
