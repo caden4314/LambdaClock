@@ -7,7 +7,7 @@ import {resolveHighResSize} from '../frontend/src/display/highres.js';
 import {createRingBuffer,findTriggerIndex,triggerWindow} from '../frontend/src/display/scope.js';
 import {sampleSignal,magnitudeSpectrum,dominantFrequency,nextPowerOfTwo,createFFTPlan,createSpectrumAnalyzer} from '../frontend/src/display/signal.js';
 import {cartesianTransform} from '../frontend/src/display/plot.js';
-import {rotatePoint3D,cubeProjection,cubeBeamPath} from '../frontend/src/display/cube.js';
+import {rotatePoint3D,cubeProjection,cubeBeamPath,CUBE_EDGES} from '../frontend/src/display/cube.js';
 import {measureBeamPath,sampleBeamHead,phosphorDecayForHalfLife} from '../frontend/src/display/phosphor.js';
 import {PHOSPHOR_MODELS,phosphorDecayFactors,phosphorDose,phosphorRelativeEnergy} from '../frontend/src/display/phosphor-models.js';
 import {measureCRTPath,sampleCRTPath,createCRTBeamState,advanceCRTBeam} from '../frontend/src/display/crt-beam.js';
@@ -29,7 +29,7 @@ const analyzer=createSpectrumAnalyzer({fftSize:1024,sampleRate}),first=analyzer.
 const transform=cartesianTransform({xMin:-1,xMax:1,yMin:-1,yMax:1,width:100,height:100}),origin=transform.toCanvas(0,0);assert(close(origin[0],50)&&close(origin[1],50),'Cartesian origin');
 const quarter=rotatePoint3D([1,0,0],{sinZ:1,cosZ:0});assert(close(quarter[0],0)&&close(quarter[1],1),'cube rotation');
 const cube=cubeProjection({sinX:0,cosX:1,sinY:0,cosY:1,sinZ:0,cosZ:1},{width:640,height:480});assert(cube.length===8&&cube.every(point=>point.every(Number.isFinite)),'cube projection');
-const beamPath=cubeBeamPath([[1,0,0],[0,1,0],[0,0,1]],{width:640,height:480,blankRetrace:true}),measuredBeam=measureBeamPath(beamPath);assert(beamPath.length>=12&&measuredBeam.total>0&&beamPath.some(s=>s.blanked),'cube beam path');
+const beamPath=cubeBeamPath([[1,0,0],[0,1,0],[0,0,1]],{width:640,height:480,blankRetrace:true}),measuredBeam=measureBeamPath(beamPath),visibleCubeEdges=beamPath.filter(s=>!s.blanked),expectedCubeEdges=new Set(CUBE_EDGES.map(([a,b])=>Math.min(a,b)+'-'+Math.max(a,b))),actualCubeEdges=new Set(visibleCubeEdges.map(s=>s.edgeKey));assert(measuredBeam.total>0&&visibleCubeEdges.length===CUBE_EDGES.length&&actualCubeEdges.size===expectedCubeEdges.size&&[...expectedCubeEdges].every(key=>actualCubeEdges.has(key)),'cube beam covers every edge exactly once');assert(beamPath.at(-1)?.blanked&&beamPath.at(-1)?.edgeKey===null,'cube scan closes with blanked retrace');
 const beamHead=sampleBeamHead(beamPath,.25);assert(beamHead&&Number.isFinite(beamHead.x),'beam head');
 const halfLife=.24,fadeWhole=phosphorDecayForHalfLife(halfLife,halfLife),fadeHalf=phosphorDecayForHalfLife(halfLife/2,halfLife);assert(close(fadeWhole,.5,1e-9)&&close((1-fadeHalf)*(1-fadeHalf),.5,1e-9),'legacy half-life invariance');const p7=phosphorDecayFactors(1,'P7'),p31=phosphorDecayFactors(1,'P31');
 assert(PHOSPHOR_MODELS.P7.halfLives[3]>PHOSPHOR_MODELS.P31.halfLives[3]&&p7[3]>p31[3],'P7 deep persistence');

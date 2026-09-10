@@ -73,7 +73,7 @@ export class CRTPhosphorRenderer{
     const sequence=this.lastBeamPoint?[this.lastBeamPoint,...points]:points,lineData=new Float32Array(Math.max(0,(sequence.length-1)*24));let n=0;
     const vertex=(px,py,energy,cross)=>{lineData[n++]=px/this.width*2-1;lineData[n++]=1-py/this.height*2;lineData[n++]=energy;lineData[n++]=cross};
     for(let i=1;i<sequence.length;i++){
-      const a=sequence[i-1],b=sequence[i];if(!a||!b)continue;
+      const a=sequence[i-1],b=sequence[i];if(!a||!b||a.blanked||b.blanked||a.runId!==b.runId)continue;
       const ax=a.x*dpr,ay=a.y*dpr,bx=b.x*dpr,by=b.y*dpr,dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy);if(len<.05)continue;
       const half=Math.max(.75,(Math.max(1,a.radius)+Math.max(1,b.radius))*.25*dpr),nx=-dy/len*half,ny=dx/len*half,e0=Math.max(0,a.energy),e1=Math.max(0,b.energy);
       if(Math.max(e0,e1)<=.0001)continue;
@@ -88,7 +88,7 @@ export class CRTPhosphorRenderer{
       gl.uniform4f(gl.getUniformLocation(this.lineProgram,'uWeights'),m.weights[0],m.weights[1],m.weights[2],m.weights[3]);gl.drawArrays(gl.TRIANGLES,0,n/4);
     }
     const head=points[points.length-1];
-    if(head?.energy>.0001){
+    if(head?.energy>.0001&&!head.blanked){
       const data=new Float32Array([head.x/(this.width/dpr)*2-1,1-head.y/(this.height/dpr)*2,head.energy*2.35,Math.max(1,head.radius*dpr*1.18)]);
       gl.useProgram(this.beamProgram);gl.bindBuffer(gl.ARRAY_BUFFER,this.beamBuffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
       const stride=16,pos=gl.getAttribLocation(this.beamProgram,'aPosition'),energy=gl.getAttribLocation(this.beamProgram,'aEnergy'),radius=gl.getAttribLocation(this.beamProgram,'aRadius');

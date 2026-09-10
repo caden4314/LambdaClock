@@ -41,7 +41,7 @@ export default function LambdaCube(){
       <button class={blankRetrace()?'active':''} onClick={()=>setBlankRetrace(v=>!v)}>BLANK RETRACE</button><button onClick={reset}>RESET</button>
     </section>
     <section class="cube-layout">
-      <article class="cube-panel cube-xy"><header><span>XY</span><div><b>{phosphor()} PHOSPHOR VECTOR CRT</b><small>single analog beam · multi-reservoir afterglow · velocity-sensitive excitation</small></div></header><div class="cube-stage"><PhosphorCRTDisplay path={cubePath} paused={paused()} model={phosphor()} beamRate={beamRate()} beamCurrent={beamCurrent()} persistenceScale={persistence()} maxPixels={1_250_000} onReady={api=>crtApi=api} label="Lambda-driven 3D cube traced by a physical phosphor CRT model"/></div></article>
+      <article class="cube-panel cube-xy"><header><span>XY</span><div><b>{phosphor()} PHOSPHOR VECTOR CRT</b><small>single analog beam · multi-reservoir afterglow · velocity-sensitive excitation</small></div></header><div class="cube-stage"><PhosphorCRTDisplay path={cubePath} latchPath={true} paused={paused()} model={phosphor()} beamRate={beamRate()} beamCurrent={beamCurrent()} persistenceScale={persistence()} maxPixels={1_250_000} onReady={api=>crtApi=api} label="Lambda-driven 3D cube traced by a physical phosphor CRT model"/></div></article>
       <article class="cube-panel cube-lambda"><header><span>λ</span><div><b>LIVE LAMBDA STATE</b><small>Church-encoded angle registers feeding the CORDIC worker</small></div></header><div class="cube-lambda-stage"><LambdaSurface digits={lambdaDigits()} transition={lambdaTransition()}/></div></article>
     </section>
     <section class="cube-math">
