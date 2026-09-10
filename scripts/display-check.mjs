@@ -1,5 +1,5 @@
 import {normalizeValues,sampleWave} from '../frontend/src/display/primitives.js';
-import {smoothstep,smootherstep,pulse,springStep} from '../frontend/src/display/effects.js';
+import {smoothstep,smootherstep,pulse,springStep,resolveGlowStyle} from '../frontend/src/display/effects.js';
 import {rasterizeDotText,scrollDotRaster} from '../frontend/src/display/dotfont.js';
 import {createScene,displayLayer} from '../frontend/src/display/scene.js';
 import {resolveCanvasDpr} from '../frontend/src/display/engine.js';
@@ -15,6 +15,7 @@ const normalized=normalizeValues([-1,0,.25,2],4);assert(normalized.length===4,'n
 const wave=sampleWave(x=>x*2-1,5);assert(wave.length===5,'wave sample count');assert(close(wave[0],-1)&&close(wave[2],0)&&close(wave[4],1),'wave sampling endpoints');
 assert(close(smoothstep(0),0)&&close(smoothstep(1),1),'smoothstep endpoints');assert(close(smootherstep(0),0)&&close(smootherstep(1),1),'smootherstep endpoints');for(let i=0;i<50;i++){const p=pulse(i/50,2);assert(p>=0&&p<=1,'pulse bounds')}
 let spring={value:0,velocity:0};for(let i=0;i<240;i++)spring=springStep(spring,1,1/120,{frequency:3,damping:1});assert(Math.abs(spring.value-1)<.005,'spring converges');
+const glow=resolveGlowStyle(8,{alpha:.22,quality:1});assert(glow.widthScale>1&&glow.sizeScale>1&&glow.alphaScale>0&&glow.alphaScale<1,'fast glow resolves to translucent expanded pass');
 
 const text=rasterizeDotText('LAMBDA');assert(text.rows===7&&text.cols>25&&text.values.some(Boolean),'dot font rasterizes text');const scrolled=scrollDotRaster(text,12,3);assert(scrolled.cols===12&&scrolled.rows===7&&scrolled.values.length===84,'dot raster scroll window');
 const layer=displayLayer(()=>{}),scene=createScene(layer);assert(scene.layers.length===1&&scene.layers[0]===layer,'scene composes display layers');
@@ -28,4 +29,4 @@ assert(nextPowerOfTwo(1000)===1024,'FFT power-of-two sizing');const planA=create
 const sampleRate=4096,frequency=256,samples=sampleSignal(t=>Math.sin(Math.PI*2*frequency*t),{count:1024,sampleRate}),spectrum=magnitudeSpectrum(samples,{sampleRate}),peak=dominantFrequency(spectrum);assert(Math.abs(peak.frequency-frequency)<1e-6,'FFT dominant frequency');
 const analyzer=createSpectrumAnalyzer({fftSize:1024,sampleRate}),first=analyzer.analyze(t=>Math.sin(Math.PI*2*frequency*t)),values=first.values,second=analyzer.analyze(t=>Math.sin(Math.PI*2*frequency*t),{startTime:.1});assert(second.values===values&&second.samples===first.samples,'spectrum analyzer reuses buffers');
 const transform=cartesianTransform({xMin:-1,xMax:1,yMin:-1,yMax:1,width:100,height:100}),origin=transform.toCanvas(0,0);assert(close(origin[0],50)&&close(origin[1],50),'Cartesian transform origin');
-console.log(`Display system self-test passed; FFT peak=${peak.frequency}Hz; hi-res=${high.pixelWidth}x${high.pixelHeight}; live=${live.pixelWidth}x${live.pixelHeight}`);
+console.log(`Display system self-test passed; FFT peak=${peak.frequency}Hz; hi-res=${high.pixelWidth}x${high.pixelHeight}; live=${live.pixelWidth}x${live.pixelHeight}; fast-glow=${glow.widthScale.toFixed(2)}x`);
