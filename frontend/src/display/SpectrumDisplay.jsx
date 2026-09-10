@@ -18,8 +18,8 @@ export default function SpectrumDisplay(props){
     }
     const maxFrequency=Math.min(analyzer.sampleRate/2,Number(props.maxFrequency??analyzer.sampleRate/2)),count=Math.max(2,Math.min(smoothed.length,Math.floor(maxFrequency/analyzer.binHz)+1));
     drawGrid(ctx,{width,height,xDiv:10,yDiv:6,alpha:.055});
-    const draw=()=>{ctx.save();ctx.strokeStyle='#fff';ctx.globalAlpha=.92;ctx.lineWidth=1.25;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();for(let i=0;i<count;i++){const x=i/(count-1)*width,y=height-(smoothed[i]*height*.88+height*.04);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke();ctx.restore()};
-    props.glow===false?draw():withGlow(ctx,7,draw,{alpha:.2,quality:q});if(props.scanlines)drawScanlines(ctx,{width,height,spacing:4,alpha:.04,offset:time*9});drawVignette(ctx,{width,height,strength:.24});
+    const draw=(style={})=>{ctx.save();ctx.strokeStyle='#fff';ctx.globalAlpha=.92*(style.alphaScale??1);ctx.lineWidth=1.25*(style.widthScale??1);ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();for(let i=0;i<count;i++){const x=i/(count-1)*width,y=height-(smoothed[i]*height*.88+height*.04);i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke();ctx.restore()};
+    props.glow===false?draw():withGlow(ctx,7,draw,{alpha:.2,quality:q,mode:props.glowMode??'fast'});if(props.scanlines)drawScanlines(ctx,{width,height,spacing:4,alpha:.04,offset:time*9});drawVignette(ctx,{width,height,strength:.24});
   }};
   return <DisplayCanvas scene={scene} paused={props.paused} persistence={props.persistence??.55} background={props.background??'#000'} resolutionScale={props.resolutionScale??1} maxDpr={props.maxDpr??2.5} maxPixels={props.maxPixels??1_250_000} adaptiveResolution={props.adaptiveResolution!==false} maxFps={props.maxFps??0} class={props.class} label={props.label??'Frequency spectrum display'}/>;
 }
