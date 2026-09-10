@@ -8,9 +8,11 @@ export {resolveHighResSize,createHighResCanvas,renderHighRes,highResBlob} from '
 export {createRingBuffer,findTriggerIndex,findTriggerAnchor,triggerWindow,drawScopeGraticule,drawOscilloscope,drawXYScope} from './scope.js';
 export {nextPowerOfTwo,hannWindow,sampleSignal,sampleSignalInto,createFFTPlan,fftReal,createSpectrumAnalyzer,magnitudeSpectrum,dominantFrequency,normalizeSpectrum} from './signal.js';
 export {cartesianTransform,drawAxes,drawFunctionPlot,drawVectorField,mapToViewport} from './plot.js';
-export {CUBE_VERTICES,CUBE_EDGES,rotatePoint3D,projectPoint3D,cubeProjection,drawWireCube} from './cube.js';
+export {createBeamPath,measureBeamPath,sampleBeamHead,drawPhosphorBeam,drawPhosphorFace,phosphorDecayForHalfLife} from './phosphor.js';
+export {CUBE_VERTICES,CUBE_EDGES,CUBE_TRACE_EDGES,rotatePoint3D,rotatePointByBasis,projectPoint3D,cubeProjection,cubeProjectionFromBasis,cubeBeamPath,drawWireCube} from './cube.js';
 export {default as DisplayCanvas} from './DisplayCanvas.jsx';
 export {default as HighResCanvas} from './HighResCanvas.jsx';
 export {default as Oscilloscope} from './Oscilloscope.jsx';
 export {default as SpectrumDisplay} from './SpectrumDisplay.jsx';
+export {default as PhosphorVectorDisplay} from './PhosphorVectorDisplay.jsx';
 export {default as LambdaSurface} from './LambdaSurface.jsx';

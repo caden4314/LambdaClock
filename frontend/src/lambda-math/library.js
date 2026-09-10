@@ -179,3 +179,31 @@ export function runArithmeticShift(value,shift,{width=16,limit=2_000_000}={}){
   const word=decodeWord(run,width);
   return {...word,beta:run.ev.stats.beta,forces:run.ev.stats.forces,nodes:run.nodes,run};
 }
+
+
+// Shift/add approximation of the CORDIC inverse gain.  The magnitude path
+// avoids arithmetic-right-shift bias for negative fixed-point words.
+export const CORDIC_K_SHIFT_TERMS=Object.freeze([1,4,5,7,8,10,11,12,14]);
+export function cordicScaleWord(width=16){
+  const shifts=CORDIC_K_SHIFT_TERMS.filter(shift=>shift<width);
+  let scaled=wordFromInt(0,width);
+  for(const shift of shifts)scaled=apps(V('ADD'),scaled,A(wordSar(width,shift),V('mag')));
+  return L('w',letIn('negative',A(V('SIGN'),V('w')),
+    letIn('mag',apps(V('IF'),V('negative'),A(V('NEG'),V('w')),V('w')),
+      letIn('scaled',scaled,apps(V('IF'),V('negative'),A(V('NEG'),V('scaled')),V('scaled'))))));
+}
+
+export function cordicVectorRotationTermRaw(xRaw,yRaw,angleRaw,{width=16,frac=13,iterations=11}={}){
+  const count=Math.max(1,Math.min(iterations,CORDIC_ATAN_RAD.length)),scale=cordicScaleWord(width);
+  let state=apps(V('TRIPLE'),A(scale,wordFromInt(xRaw,width)),A(scale,wordFromInt(yRaw,width)),wordFromInt(angleRaw,width));
+  for(let i=0;i<count;i++)state=A(cordicRotationStep(width,i,fixedFromNumber(CORDIC_ATAN_RAD[i],frac,width)),state);
+  return state;
+}
+
+export function runCordicRotatePairRaw(xRaw,yRaw,angleRaw,options={}){
+  const width=options.width??16,frac=options.frac??13;
+  const body=cordicVectorRotationTermRaw(xRaw,yRaw,angleRaw,{...options,width,frac});
+  const run=runWordExpression(body,width,{limit:options.limit??12_000_000});
+  const [x,y,z]=decodeTripleWords(run,width);
+  return {xRaw:x.signed,yRaw:y.signed,residualRaw:z.signed,x:fixedToNumber(x,frac),y:fixedToNumber(y,frac),residual:fixedToNumber(z,frac),beta:run.ev.stats.beta,forces:run.ev.stats.forces,nodes:run.nodes,run};
+}
