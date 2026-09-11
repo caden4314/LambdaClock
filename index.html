@@ -1,50 +1,14 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#000000">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Pure Lambda Cube — Raw Live Evaluator</title>
-<link rel="stylesheet" href="cube.css?v=4">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="refresh" content="0; url=https://scenicrouteservers.com/lambda/">
+  <title>Pure Lambda Clock</title>
+  <link rel="canonical" href="https://scenicrouteservers.com/lambda/">
 </head>
 <body>
-<header>
-  <h1>Pure Lambda Cube</h1>
-  <p>uncapped β-reduction • raw reducer output • call-by-need graph sharing • generated topology • exact rational rotation</p>
-</header>
-<main>
-  <div class="controls"><button id="toggle">Pause evaluator</button><button id="reset">Reset machine</button></div>
-  <div class="grid">
-    <section class="panel">
-      <h2>Last decodable cube frame</h2>
-      <canvas id="cubeCanvas" aria-label="Cube produced by the pure lambda evaluator"></canvas>
-      <div class="meta">
-        <div><span>completed frame</span><strong id="frameValue">0</strong></div>
-        <div><span>generated vertices</span><strong id="vertexValue">…</strong></div>
-        <div><span>generated edges</span><strong id="edgeValue">…</strong></div>
-        <div><span>radius</span><strong id="radiusValue">1</strong></div>
-      </div>
-    </section>
-    <section class="panel evaluator-panel">
-      <h2>Live raw lambda evaluator</h2>
-      <div id="lambdaStage" class="lambda-stage"></div>
-      <div class="meta evaluator-meta">
-        <div><span>phase</span><strong id="phaseValue">starting…</strong></div>
-        <div><span>β reductions</span><strong id="betaValue">0</strong></div>
-        <div><span>β rate</span><strong id="rateValue">0 β/s</strong></div>
-        <div><span>active control nodes</span><strong id="nodesValue">0</strong></div>
-      </div>
-      <div class="meta evaluator-meta"><div><span>exact lambda state</span><strong id="exactValue">starting…</strong></div></div>
-    </section>
-    <section class="panel wide">
-      <h2>Raw reducer output</h2>
-      <div id="termText" class="term raw-term"></div>
-      <p class="note">This panel is the machine's raw current state: the active De Bruijn control term, its environment references, the real argument/update stack, and every reachable thunk/value cell. It is not a normalized-result summary. The evaluator runs without a fixed math clock and only yields briefly for browser painting. Cube construction, topology, IDs, signed binary arithmetic, exact rotation and scale are lambda terms; JavaScript is the evaluator/decoder/display boundary.</p>
-    </section>
-  </div>
-</main>
-<script type="module" src="cube-raw.js?v=5"></script>
+  <p><a href="https://scenicrouteservers.com/lambda/">Open the Pure Lambda Clock</a></p>
+  <script>location.replace('https://scenicrouteservers.com/lambda/')</script>
 </body>
 </html>
