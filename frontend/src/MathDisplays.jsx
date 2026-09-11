@@ -3,7 +3,7 @@ import {Match,Switch,onCleanup,onMount} from 'solid-js';
 const TAU=Math.PI*2;
 const META={
   rule110:{title:'Rule 110',equation:'next = rule110(left, center, right)',note:'continuous cellular computation / no generation reset'},
-  rewrite:{title:'Rewrite Machine',equation:'X → X+YF+    Y → −FX−Y',note:'recursive rewriting / unbounded paperfolding walk'},
+  rewrite:{title:'Rewrite Machine',equation:'X → X+YF+    Y → −FX−Y',note:'persistent forward-only growth / no replay'},
   fourier:{title:'Fourier Machine',equation:'f(t) = Σ 4/(πn) · sin(nt)',note:'rotating harmonics assemble a continuous signal'},
   complex:{title:'Complex Plane',equation:'zₙ₊₁ = zₙ² + c',note:'aspect-correct Mandelbrot plane / bounded live orbit'},
   lorenz:{title:'Lorenz System',equation:'ẋ=σ(y−x)   ẏ=x(ρ−z)−y   ż=xy−βz',note:'continuous integration / rolling strange-attractor history'},
@@ -31,11 +31,76 @@ function Rule110(){
 
 function dragonTurn(n){const low=n&(-n);return (((low<<1n)&n)!==0n)?1:-1}
 function RewriteMachine(){
-  let x=0,y=0,a=0,step=0n,acc=0;const points=[[0,0]],limit=5200;
-  const recenter=()=>{const [bx,by]=points[0];if(!bx&&!by)return;for(const p of points){p[0]-=bx;p[1]-=by}x-=bx;y-=by};
-  const advance=()=>{x+=Math.cos(a);y+=Math.sin(a);points.push([x,y]);step++;a+=dragonTurn(step)*Math.PI/2;if(points.length>limit)points.shift();if(step%2048n===0n&&points.length>1)recenter()};
-  const draw=(ctx,w,h,t,dt)=>{acc+=dt*26;let guard=0;while(acc>=1&&guard++<16){advance();acc-=1}let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;for(const p of points){minX=Math.min(minX,p[0]);maxX=Math.max(maxX,p[0]);minY=Math.min(minY,p[1]);maxY=Math.max(maxY,p[1])}const pad=Math.min(w,h)*.1,sx=(w-pad*2)/Math.max(1,maxX-minX),sy=(h-pad*2)/Math.max(1,maxY-minY),scale=Math.min(sx,sy),ox=(w-(maxX-minX)*scale)/2-minX*scale,oy=(h-(maxY-minY)*scale)/2-minY*scale;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=Math.max(.8,Math.min(1.7,w/900));for(let start=1;start<points.length;start+=700){const end=Math.min(points.length,start+701),alpha=.16+.7*(end/points.length);ctx.strokeStyle=`rgba(255,255,255,${alpha})`;ctx.beginPath();ctx.moveTo(ox+points[start-1][0]*scale,oy+points[start-1][1]*scale);for(let i=start;i<end;i++)ctx.lineTo(ox+points[i][0]*scale,oy+points[i][1]*scale);ctx.stroke()}const p=points[points.length-1];ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ox+p[0]*scale,oy+p[1]*scale,3,0,TAU);ctx.fill();drawLabel(ctx,w,h,`${step.toString()} rewrite steps  •  rolling trail`)};
-  return <CanvasSurface label="Continuously growing recursive dragon rewrite machine" draw={draw}/>;
+  let ink=null,iw=0,ih=0,x=0,y=0,dir=0,unit=9,step=0n,acc=0,zoomPulse=0;
+  const recent=[],sparks=[];
+  const makeCanvas=(w,h)=>{const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c};
+  const transformState=(scale,ox,oy)=>{
+    x=ox+x*scale;y=oy+y*scale;unit*=scale;
+    for(const p of recent){p[0]=ox+p[0]*scale;p[1]=oy+p[1]*scale;p[2]=ox+p[2]*scale;p[3]=oy+p[3]*scale}
+    for(const p of sparks){p.x=ox+p.x*scale;p.y=oy+p.y*scale}
+  };
+  const ensure=(w,h)=>{
+    const nw=Math.max(1,Math.round(w)),nh=Math.max(1,Math.round(h));
+    if(ink&&Math.abs(nw-iw)<2&&Math.abs(nh-ih)<2)return;
+    const next=makeCanvas(nw,nh),nctx=next.getContext('2d');
+    if(!ink){ink=next;iw=nw;ih=nh;x=iw*.5;y=ih*.54;return}
+    const scale=Math.min(nw/iw,nh/ih),ox=(nw-iw*scale)/2,oy=(nh-ih*scale)/2;
+    nctx.imageSmoothingEnabled=true;nctx.drawImage(ink,ox,oy,iw*scale,ih*scale);
+    transformState(scale,ox,oy);ink=next;iw=nw;ih=nh;
+  };
+  const compress=()=>{
+    if(!ink)return;
+    const scale=.93,ox=iw*(1-scale)/2,oy=ih*(1-scale)/2,tmp=makeCanvas(iw,ih),tctx=tmp.getContext('2d');
+    tctx.imageSmoothingEnabled=true;tctx.drawImage(ink,ox,oy,iw*scale,ih*scale);
+    ink=tmp;transformState(scale,ox,oy);zoomPulse=1;
+  };  const maybeCompress=()=>{
+    const margin=Math.min(iw,ih)*.105;
+    if(x<margin||x>iw-margin||y<margin||y>ih-margin)compress();
+  };
+  const advance=()=>{
+    const px=x,py=y,angle=dir*Math.PI/2;
+    x+=Math.cos(angle)*unit;y+=Math.sin(angle)*unit;step++;
+    const turn=dragonTurn(step);dir=(dir+(turn>0?1:3))&3;
+    recent.push([px,py,x,y,Number(step%1000000n)]);
+    if(recent.length>110)recent.shift();
+    if(step%7n===0n)sparks.push({x,y,vx:-Math.sin(angle)*(turn>0?1:-1)*8,vy:Math.cos(angle)*(turn>0?1:-1)*8,life:1});
+  };
+  const commitPath=segments=>{
+    if(!segments.length)return;
+    const c=ink.getContext('2d');c.save();c.lineCap='round';c.lineJoin='round';
+    c.beginPath();c.moveTo(segments[0][0],segments[0][1]);
+    for(const p of segments)c.lineTo(p[2],p[3]);
+    c.shadowColor='rgba(255,255,255,.34)';c.shadowBlur=Math.max(3,unit*.72);
+    c.strokeStyle='rgba(255,255,255,.50)';c.lineWidth=Math.max(.72,unit*.105);c.stroke();
+    c.shadowBlur=0;c.strokeStyle='rgba(255,255,255,.52)';c.lineWidth=Math.max(.45,unit*.052);c.stroke();c.restore();
+  };
+  const draw=(ctx,w,h,t,dt)=>{
+    ensure(w,h);zoomPulse=Math.max(0,zoomPulse-dt*1.9);
+    acc+=dt*210;const added=[];let guard=0;    while(acc>=1&&guard++<40){advance();added.push(recent[recent.length-1]);acc-=1}
+    commitPath(added);maybeCompress();
+    ctx.save();ctx.globalAlpha=.94;ctx.drawImage(ink,0,0,w,h);ctx.restore();
+    if(recent.length>1){
+      ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+      for(let i=1;i<recent.length;i++){
+        const p=recent[i],q=i/recent.length;
+        ctx.strokeStyle=`rgba(255,255,255,${.04+.72*q*q})`;
+        ctx.lineWidth=Math.max(.7,unit*(.045+.08*q));
+        ctx.shadowColor=`rgba(255,255,255,${.08+.34*q})`;ctx.shadowBlur=2+7*q;
+        ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(p[2],p[3]);ctx.stroke();
+      }
+      ctx.restore();
+    }
+    for(let i=sparks.length-1;i>=0;i--){
+      const p=sparks[i];p.life-=dt*2.3;if(p.life<=0){sparks.splice(i,1);continue}
+      p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.14,dt);p.vy*=Math.pow(.14,dt);
+      ctx.fillStyle=`rgba(255,255,255,${p.life*.34})`;ctx.beginPath();ctx.arc(p.x,p.y,.55+1.5*p.life,0,TAU);ctx.fill();
+    }
+    const pulse=.5+.5*Math.sin(t*10),r=2.2+1.5*pulse+zoomPulse*2.4;
+    ctx.save();ctx.shadowColor='rgba(255,255,255,.85)';ctx.shadowBlur=8+8*pulse;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,1.65+.65*pulse,0,TAU);ctx.fill();
+    ctx.shadowBlur=0;ctx.strokeStyle=`rgba(255,255,255,${.16+.18*pulse})`;ctx.lineWidth=.8;ctx.beginPath();ctx.arc(x,y,r+4,0,TAU);ctx.stroke();ctx.restore();    if(zoomPulse>0){ctx.strokeStyle=`rgba(255,255,255,${zoomPulse*.07})`;ctx.lineWidth=1;ctx.strokeRect(w*.025,h*.025,w*.95,h*.95)}
+    drawLabel(ctx,w,h,`${step.toString()} rewrite steps  •  210 steps/s  •  persistent`);
+  };
+  return <CanvasSurface label="Persistent forward-only recursive dragon rewrite machine" draw={draw}/>;
 }
 
 function fourierPoint(t,terms,scale){let x=0,y=0;for(let q=0;q<terms;q++){const n=q*2+1,r=scale*4/(Math.PI*n);x+=r*Math.cos(n*t);y+=r*Math.sin(n*t)}return [x,y]}
