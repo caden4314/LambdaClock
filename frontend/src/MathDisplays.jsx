@@ -3,7 +3,7 @@ import {Match,Switch,onCleanup,onMount} from 'solid-js';
 const TAU=Math.PI*2;
 const META={
   rule110:{title:'Rule 110',equation:'next = rule110(left, center, right)',note:'continuous cellular computation / no generation reset'},
-  rewrite:{title:'Rewrite Machine',equation:'X → X+YF+    Y → −FX−Y',note:'persistent forward-only growth / no replay'},
+  rewrite:{title:'Rewrite Machine',equation:'X → X+YF+    Y → −FX−Y',note:'vector-master growth / lossless rerender on zoom'},
   fourier:{title:'Fourier Machine',equation:'f(t) = Σ 4/(πn) · sin(nt)',note:'rotating harmonics assemble a continuous signal'},
   complex:{title:'Complex Plane',equation:'zₙ₊₁ = zₙ² + c',note:'aspect-correct Mandelbrot plane / bounded live orbit'},
   lorenz:{title:'Lorenz System',equation:'ẋ=σ(y−x)   ẏ=x(ρ−z)−y   ż=xy−βz',note:'continuous integration / rolling strange-attractor history'},
@@ -31,76 +31,82 @@ function Rule110(){
 
 function dragonTurn(n){const low=n&(-n);return (((low<<1n)&n)!==0n)?1:-1}
 function RewriteMachine(){
-  let ink=null,iw=0,ih=0,x=0,y=0,dir=0,unit=9,step=0n,acc=0,zoomPulse=0;
-  const recent=[],sparks=[];
-  const makeCanvas=(w,h)=>{const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c};
-  const transformState=(scale,ox,oy)=>{
-    x=ox+x*scale;y=oy+y*scale;unit*=scale;
-    for(const p of recent){p[0]=ox+p[0]*scale;p[1]=oy+p[1]*scale;p[2]=ox+p[2]*scale;p[3]=oy+p[3]*scale}
-    for(const p of sparks){p.x=ox+p.x*scale;p.y=oy+p.y*scale}
+  let ink=null,iw=0,ih=0,density=1,wx=0,wy=0,dir=0,step=0n,acc=0;
+  let scale=9,ox=0,oy=0,minX=0,maxX=0,minY=0,maxY=0,zoomPulse=0;
+  const worldPath=new Path2D(),recent=[],sparks=[];
+  worldPath.moveTo(0,0);
+  const makeCanvas=(w,h)=>{
+    density=Math.min(globalThis.devicePixelRatio||1,3);
+    const c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(w*density));c.height=Math.max(1,Math.round(h*density));
+    return c;
+  };
+  const screenPoint=(x,y)=>[ox+x*scale,oy+y*scale];
+  const fit=()=>{
+    const spanX=Math.max(1,maxX-minX),spanY=Math.max(1,maxY-minY),pad=.19;
+    scale=Math.min(9,iw*(1-pad*2)/spanX,ih*(1-pad*2)/spanY);
+    ox=iw*.5-(minX+maxX)*.5*scale;oy=ih*.5-(minY+maxY)*.5*scale;
+  };
+  const strokeVector=(c,path,alpha=.54)=>{
+    c.save();c.setTransform(density*scale,0,0,density*scale,density*ox,density*oy);
+    c.lineCap='round';c.lineJoin='round';c.strokeStyle=`rgba(255,255,255,${alpha})`;
+    c.lineWidth=Math.max(.72,Math.min(1.18,scale*.11))/scale;c.stroke(path);c.restore();
+  };
+  const rerender=()=>{
+    const c=ink.getContext('2d');c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,ink.width,ink.height);
+    strokeVector(c,worldPath,.50);
   };
   const ensure=(w,h)=>{
     const nw=Math.max(1,Math.round(w)),nh=Math.max(1,Math.round(h));
     if(ink&&Math.abs(nw-iw)<2&&Math.abs(nh-ih)<2)return;
-    const next=makeCanvas(nw,nh),nctx=next.getContext('2d');
-    if(!ink){ink=next;iw=nw;ih=nh;x=iw*.5;y=ih*.54;return}
-    const scale=Math.min(nw/iw,nh/ih),ox=(nw-iw*scale)/2,oy=(nh-ih*scale)/2;
-    nctx.imageSmoothingEnabled=true;nctx.drawImage(ink,ox,oy,iw*scale,ih*scale);
-    transformState(scale,ox,oy);ink=next;iw=nw;ih=nh;
+    iw=nw;ih=nh;ink=makeCanvas(iw,ih);fit();rerender();
+  };  const needsFit=()=>{
+    const margin=Math.min(iw,ih)*.105,l=ox+minX*scale,r=ox+maxX*scale,t=oy+minY*scale,b=oy+maxY*scale;
+    return l<margin||r>iw-margin||t<margin||b>ih-margin;
   };
-  const compress=()=>{
-    if(!ink)return;
-    const scale=.93,ox=iw*(1-scale)/2,oy=ih*(1-scale)/2,tmp=makeCanvas(iw,ih),tctx=tmp.getContext('2d');
-    tctx.imageSmoothingEnabled=true;tctx.drawImage(ink,ox,oy,iw*scale,ih*scale);
-    ink=tmp;transformState(scale,ox,oy);zoomPulse=1;
-  };  const maybeCompress=()=>{
-    const margin=Math.min(iw,ih)*.105;
-    if(x<margin||x>iw-margin||y<margin||y>ih-margin)compress();
-  };
-  const advance=()=>{
-    const px=x,py=y,angle=dir*Math.PI/2;
-    x+=Math.cos(angle)*unit;y+=Math.sin(angle)*unit;step++;
+  const advance=added=>{
+    const px=wx,py=wy,angle=dir*Math.PI/2;
+    wx+=Math.cos(angle);wy+=Math.sin(angle);step++;
+    worldPath.lineTo(wx,wy);added.lineTo(wx,wy);
+    minX=Math.min(minX,wx);maxX=Math.max(maxX,wx);minY=Math.min(minY,wy);maxY=Math.max(maxY,wy);
     const turn=dragonTurn(step);dir=(dir+(turn>0?1:3))&3;
-    recent.push([px,py,x,y,Number(step%1000000n)]);
-    if(recent.length>110)recent.shift();
-    if(step%7n===0n)sparks.push({x,y,vx:-Math.sin(angle)*(turn>0?1:-1)*8,vy:Math.cos(angle)*(turn>0?1:-1)*8,life:1});
+    recent.push([px,py,wx,wy]);if(recent.length>140)recent.shift();
+    if(step%7n===0n)sparks.push({x:wx,y:wy,side:turn>0?1:-1,age:0});
   };
-  const commitPath=segments=>{
-    if(!segments.length)return;
-    const c=ink.getContext('2d');c.save();c.lineCap='round';c.lineJoin='round';
-    c.beginPath();c.moveTo(segments[0][0],segments[0][1]);
-    for(const p of segments)c.lineTo(p[2],p[3]);
-    c.shadowColor='rgba(255,255,255,.34)';c.shadowBlur=Math.max(3,unit*.72);
-    c.strokeStyle='rgba(255,255,255,.50)';c.lineWidth=Math.max(.72,unit*.105);c.stroke();
-    c.shadowBlur=0;c.strokeStyle='rgba(255,255,255,.52)';c.lineWidth=Math.max(.45,unit*.052);c.stroke();c.restore();
-  };
+  const commit=path=>strokeVector(ink.getContext('2d'),path,.54);
   const draw=(ctx,w,h,t,dt)=>{
-    ensure(w,h);zoomPulse=Math.max(0,zoomPulse-dt*1.9);
-    acc+=dt*210;const added=[];let guard=0;    while(acc>=1&&guard++<40){advance();added.push(recent[recent.length-1]);acc-=1}
-    commitPath(added);maybeCompress();
-    ctx.save();ctx.globalAlpha=.94;ctx.drawImage(ink,0,0,w,h);ctx.restore();
+    ensure(w,h);zoomPulse=Math.max(0,zoomPulse-dt*1.8);acc+=dt*210;
+    const added=new Path2D();added.moveTo(wx,wy);let guard=0,count=0;
+    while(acc>=1&&guard++<48){advance(added);acc-=1;count++}
+    if(count){
+      if(needsFit()){fit();rerender();zoomPulse=1}
+      else commit(added);
+    }
+    ctx.save();ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.globalAlpha=.95;
+    ctx.drawImage(ink,0,0,w,h);ctx.restore();
     if(recent.length>1){
       ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
       for(let i=1;i<recent.length;i++){
-        const p=recent[i],q=i/recent.length;
-        ctx.strokeStyle=`rgba(255,255,255,${.04+.72*q*q})`;
-        ctx.lineWidth=Math.max(.7,unit*(.045+.08*q));
-        ctx.shadowColor=`rgba(255,255,255,${.08+.34*q})`;ctx.shadowBlur=2+7*q;
-        ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo(p[2],p[3]);ctx.stroke();
+        const p=recent[i],q=i/recent.length,[ax,ay]=screenPoint(p[0],p[1]),[bx,by]=screenPoint(p[2],p[3]);
+        ctx.strokeStyle=`rgba(255,255,255,${.035+.78*q*q})`;ctx.lineWidth=.7+1.1*q;
+        ctx.shadowColor=`rgba(255,255,255,${.08+.42*q})`;ctx.shadowBlur=2+8*q;
+        ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
       }
       ctx.restore();
+    }    for(let i=sparks.length-1;i>=0;i--){
+      const p=sparks[i];p.age+=dt;if(p.age>.52){sparks.splice(i,1);continue}
+      const fade=1-p.age/.52,[sx,sy]=screenPoint(p.x,p.y),drift=p.side*p.age*15;
+      ctx.fillStyle=`rgba(255,255,255,${fade*.28})`;ctx.beginPath();
+      ctx.arc(sx+drift,sy-p.age*8,.5+fade*1.4,0,TAU);ctx.fill();
     }
-    for(let i=sparks.length-1;i>=0;i--){
-      const p=sparks[i];p.life-=dt*2.3;if(p.life<=0){sparks.splice(i,1);continue}
-      p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=Math.pow(.14,dt);p.vy*=Math.pow(.14,dt);
-      ctx.fillStyle=`rgba(255,255,255,${p.life*.34})`;ctx.beginPath();ctx.arc(p.x,p.y,.55+1.5*p.life,0,TAU);ctx.fill();
-    }
-    const pulse=.5+.5*Math.sin(t*10),r=2.2+1.5*pulse+zoomPulse*2.4;
-    ctx.save();ctx.shadowColor='rgba(255,255,255,.85)';ctx.shadowBlur=8+8*pulse;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,1.65+.65*pulse,0,TAU);ctx.fill();
-    ctx.shadowBlur=0;ctx.strokeStyle=`rgba(255,255,255,${.16+.18*pulse})`;ctx.lineWidth=.8;ctx.beginPath();ctx.arc(x,y,r+4,0,TAU);ctx.stroke();ctx.restore();    if(zoomPulse>0){ctx.strokeStyle=`rgba(255,255,255,${zoomPulse*.07})`;ctx.lineWidth=1;ctx.strokeRect(w*.025,h*.025,w*.95,h*.95)}
-    drawLabel(ctx,w,h,`${step.toString()} rewrite steps  •  210 steps/s  •  persistent`);
+    const [hx,hy]=screenPoint(wx,wy),pulse=.5+.5*Math.sin(t*10),r=3.5+1.8*pulse+zoomPulse*2.8;
+    ctx.save();ctx.shadowColor='rgba(255,255,255,.9)';ctx.shadowBlur=9+9*pulse;ctx.fillStyle='#fff';
+    ctx.beginPath();ctx.arc(hx,hy,1.55+.7*pulse,0,TAU);ctx.fill();ctx.shadowBlur=0;
+    ctx.strokeStyle=`rgba(255,255,255,${.16+.2*pulse})`;ctx.lineWidth=.8;ctx.beginPath();ctx.arc(hx,hy,r+3,0,TAU);ctx.stroke();ctx.restore();
+    if(zoomPulse>0){ctx.strokeStyle=`rgba(255,255,255,${zoomPulse*.06})`;ctx.lineWidth=1;ctx.strokeRect(w*.025,h*.025,w*.95,h*.95)}
+    drawLabel(ctx,w,h,`${step.toString()} rewrite steps  •  vector master  •  ${density.toFixed(1)}x raster`);
   };
-  return <CanvasSurface label="Persistent forward-only recursive dragon rewrite machine" draw={draw}/>;
+  return <CanvasSurface label="Lossless-vector persistent recursive dragon rewrite machine" draw={draw}/>;
 }
 
 function fourierPoint(t,terms,scale){let x=0,y=0;for(let q=0;q<terms;q++){const n=q*2+1,r=scale*4/(Math.PI*n);x+=r*Math.cos(n*t);y+=r*Math.sin(n*t)}return [x,y]}
