@@ -3,11 +3,19 @@ import AnimatedDigit from './AnimatedDigit.jsx';
 import LambdaDisplay from './LambdaDisplay.jsx';
 import SideMenu from './SideMenu.jsx';
 import DisplayLab from './DisplayLab.jsx';
+import MathDisplay from './MathDisplays.jsx';
 
 const MENU_ITEMS=[
   {id:'clock',name:'Clock',note:'Church time',group:'Lambda'},
-  {id:'display',name:'Display Lab',note:'rendering system',group:'Other'}
+  {id:'display',name:'Display Lab',note:'rendering system',group:'Other'},
+  {id:'rule110',name:'Rule 110',note:'cellular computer',group:'Other'},
+  {id:'rewrite',name:'Rewrite Machine',note:'L-system geometry',group:'Other'},
+  {id:'fourier',name:'Fourier Machine',note:'harmonic epicycles',group:'Other'},
+  {id:'complex',name:'Complex Plane',note:'Mandelbrot orbit',group:'Other'},
+  {id:'lorenz',name:'Lorenz System',note:'strange attractor',group:'Other'},
+  {id:'modular',name:'Modular Circle',note:'arithmetic geometry',group:'Other'}
 ];
+const MATH_PAGES=new Set(['rule110','rewrite','fourier','complex','lorenz','modular']);
 const two=n=>String(n).padStart(2,'0');
 
 function readTime(){
@@ -51,6 +59,7 @@ export default function App(){
         <div class="diagrams"><div class="diagram-wrap"><LambdaDisplay digits={time().digits} transition={transition()}/></div><div class="period-diagram-wrap"><LambdaDisplay period={time().period} transition={transition()}/></div></div>
       </main></Match>
       <Match when={selected()==='display'}><DisplayLab/></Match>
+      <Match when={MATH_PAGES.has(selected())}><MathDisplay kind={selected()}/></Match>
     </Switch>
     <SideMenu open={menuOpen()} onOpenChange={setMenuOpen} items={MENU_ITEMS} selected={selected()} onSelect={selectPage}/>
   </>;
