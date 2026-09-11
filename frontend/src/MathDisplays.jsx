@@ -4,7 +4,7 @@ import RewriteComputer from './RewriteComputer.jsx';
 const TAU=Math.PI*2;
 const META={
   rule110:{title:'Rule 110',equation:'next = rule110(left, center, right)',note:'continuous cellular computation / no generation reset'},
-  rewrite:{title:'Rewrite Computer',equation:'seed → turn stream → geometry + bytes',note:'seeded 24/7 shared world / fresh live runs'},
+  rewrite:{title:'Rewrite Computer',equation:'seed → turn stream → geometry + bytes',note:'seeded 24/7 shared world / fresh live runs / 1,000 turns per second'},
   fourier:{title:'Fourier Machine',equation:'f(t) = Σ 4/(πn) · sin(nt)',note:'rotating harmonics assemble a continuous signal'},
   complex:{title:'Complex Plane',equation:'zₙ₊₁ = zₙ² + c',note:'aspect-correct Mandelbrot plane / bounded live orbit'},
   lorenz:{title:'Lorenz System',equation:'ẋ=σ(y−x)   ẏ=x(ρ−z)−y   ż=xy−βz',note:'continuous integration / rolling strange-attractor history'},
