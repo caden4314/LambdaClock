@@ -3,11 +3,9 @@ import AnimatedDigit from './AnimatedDigit.jsx';
 import LambdaDisplay from './LambdaDisplay.jsx';
 import SideMenu from './SideMenu.jsx';
 import DisplayLab from './DisplayLab.jsx';
-import LambdaCube from './LambdaCube.jsx';
 
 const MENU_ITEMS=[
   {id:'clock',name:'Clock',note:'Church time'},
-  {id:'cube',name:'Lambda Cube',note:'real Lambda CORDIC 3D'},
   {id:'display',name:'Display Lab',note:'rendering system'}
 ];
 const two=n=>String(n).padStart(2,'0');
@@ -52,7 +50,6 @@ export default function App(){
         </div>
         <div class="diagrams"><div class="diagram-wrap"><LambdaDisplay digits={time().digits} transition={transition()}/></div><div class="period-diagram-wrap"><LambdaDisplay period={time().period} transition={transition()}/></div></div>
       </main></Match>
-      <Match when={selected()==='cube'}><LambdaCube/></Match>
       <Match when={selected()==='display'}><DisplayLab/></Match>
     </Switch>
     <SideMenu open={menuOpen()} onOpenChange={setMenuOpen} items={MENU_ITEMS} selected={selected()} onSelect={selectPage}/>
