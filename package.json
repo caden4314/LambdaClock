@@ -5,8 +5,8 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
-    "backend": "node server/server.mjs",
-    "check": "node --check server/server.mjs && vite build",
+    "backend": "node server/seeded-server.mjs",
+    "check": "node --check server/seeded-server.mjs && vite build",
     "test:lambda-math": "node scripts/lambda-math-check.mjs",
     "test:display": "node scripts/display-check.mjs"
   },
