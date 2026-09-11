@@ -44,6 +44,22 @@ export function seededTurn(index,seed){
   return base*blockFlip*macroFlip;
 }
 
+
+export function makeSeededTurnCursor(seed,startIndex=1){
+  const s=normalizeSeed(seed);let n=Math.max(1,Math.floor(Number(startIndex)||1));
+  let block=-1,macro=-1,blockFlip=1,macroFlip=1;
+  const dragonNumber=value=>{let low=1;while(value%(low*2)===0)low*=2;return Math.floor(value/low)%4===3?1:-1};
+  return {
+    next(){
+      const current=n++,nextBlock=Math.floor((current-1)/32),nextMacro=Math.floor((current-1)/4096);
+      if(nextBlock!==block){block=nextBlock;blockFlip=(mix64(s^((BigInt(block)*BLOCK_SALT)&MASK64))&1n)?-1:1}
+      if(nextMacro!==macro){macro=nextMacro;macroFlip=(mix64(s^0xa0761d6478bd642fn^BigInt(macro))&1n)?-1:1}
+      return dragonNumber(current)*blockFlip*macroFlip;
+    },
+    get index(){return n}
+  };
+}
+
 export function initialDirection(seed){
   return Number(mix64(normalizeSeed(seed))&3n);
 }

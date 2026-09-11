@@ -1,5 +1,5 @@
 import {createSignal,onCleanup,onMount} from 'solid-js';
-import {initialDirection,normalizeSeed,seededTurn,seedHex} from '../../shared/rewrite-seed.js';
+import {initialDirection,makeSeededTurnCursor,normalizeSeed,seededTurn,seedHex} from '../../shared/rewrite-seed.js';
 
 const TAU=Math.PI*2;
 const RATE=1000;
@@ -65,7 +65,7 @@ function makeEngine(mode,seed){
     step:0,x:0,y:0,dir:initialDirection(normalized),fnv:FNV_OFFSET,bytePack:0,byteBits:0,byteCount:0,
     ones:0,zeros:0,minX:0,maxX:0,minY:0,maxY:0,path,pathLastStep:0,
     levels:makeLevels(),recent:[],sparks:[],bitTrail:[],byteTrail:[],acc:0,
-    camera:{scale:9,ox:0,oy:0,ready:false},serverTime:0,catchingUp:false
+    camera:{scale:9,ox:0,oy:0,ready:false},serverTime:0,catchingUp:false,exactBuilding:false,exactBuildStep:0
   };
 }
 
@@ -108,10 +108,29 @@ function advanceLive(engine){
   if(engine.dir===0)engine.x++;else if(engine.dir===1)engine.y++;else if(engine.dir===2)engine.x--;else engine.y--;
   engine.step++;const turn=seededTurn(BigInt(engine.step),engine.seed),bit=turn>0?1:0;
   recordLiveBit(engine,bit);engine.dir=(engine.dir+(turn>0?1:3))&3;updateBounds(engine,engine.x,engine.y);
-  const point=[engine.step,engine.x,engine.y],compacted=addLodPoint(engine,point);
-  if(compacted)rebuildPath(engine,flattenLevels(engine.levels));else{engine.path.lineTo(engine.x,engine.y);engine.pathLastStep=engine.step}
+  const point=[engine.step,engine.x,engine.y];addLodPoint(engine,point);
+  engine.path.lineTo(engine.x,engine.y);engine.pathLastStep=engine.step;
   addRecent(engine,px,py,engine.x,engine.y,turn);
 }
+async function rebuildExactPath(engine,uptoStep,isCurrent){
+  const target=Math.max(0,Math.floor(Number(uptoStep)||0)),path=new Path2D(),cursor=makeSeededTurnCursor(engine.seed,1);
+  let x=0,y=0,dir=initialDirection(engine.seed),step=0,recent=[];path.moveTo(0,0);
+  engine.exactBuilding=true;engine.exactBuildStep=0;engine.path=path;engine.pathLastStep=0;engine.recent=[];engine.status='restoring exact';
+  while(step<target){
+    const end=Math.min(target,step+30000);
+    for(;step<end;step++){
+      const px=x,py=y;if(dir===0)x++;else if(dir===1)y++;else if(dir===2)x--;else y--;
+      const turn=cursor.next();dir=(dir+(turn>0?1:3))&3;path.lineTo(x,y);
+      recent.push([px,py,x,y]);if(recent.length>360)recent.shift();
+    }
+    engine.pathLastStep=step;engine.exactBuildStep=step;if(!isCurrent()){engine.exactBuilding=false;return false}
+    await new Promise(resolve=>(globalThis.requestAnimationFrame||setTimeout)(resolve));
+  }
+  engine.recent=recent;engine.pathLastStep=target;engine.exactBuilding=false;engine.exactBuildStep=target;
+  if(x!==engine.x||y!==engine.y||dir!==engine.dir)console.warn('[rewrite exact] reconstructed head mismatch',{x,y,dir,serverX:engine.x,serverY:engine.y,serverDir:engine.dir});
+  return true;
+}
+
 function parseHash(value){try{return BigInt(`0x${String(value||'0').replace(/^0x/,'')}`)&MASK64}catch{return 0n}}
 function applySnapshot(engine,data){
   engine.seed=normalizeSeed(data.seed);engine.epochMs=Number(data.epochMs)||0;engine.rate=Number(data.rate)||RATE;
@@ -119,7 +138,7 @@ function applySnapshot(engine,data){
   engine.fnv=parseHash(data.fnv64);engine.byteCount=Number(data.byteCount)||0;engine.ones=Number(data.ones)||0;engine.zeros=Number(data.zeros)||0;
   const b=data.bounds||{};engine.minX=Number(b.minX)||0;engine.maxX=Number(b.maxX)||0;engine.minY=Number(b.minY)||0;engine.maxY=Number(b.maxY)||0;
   engine.bitTrail=Array.isArray(data.recentBits)?data.recentBits.slice(-64):[];engine.byteTrail=Array.isArray(data.recentBytes)?data.recentBytes.slice(-16):[];
-  rebuildPath(engine,Array.isArray(data.points)?data.points:[]);engine.serverTime=Number(data.serverTime)||Date.now();
+  engine.serverTime=Number(data.serverTime)||Date.now();
   engine.catchingUp=!!data.catchingUp;engine.status=engine.catchingUp?'catching up':'24/7';
 }
 
@@ -201,6 +220,7 @@ function drawSparks(ctx,engine,camera,dt){
 }
 
 function drawHead(ctx,engine,camera,t){
+  if(engine.exactBuilding)return;
   const [hx,hy]=screenPoint(camera,engine.x,engine.y),pulse=.5+.5*Math.sin(t*10),r=6+2*pulse;
   ctx.save();ctx.shadowColor='rgba(255,255,255,.9)';ctx.shadowBlur=9+9*pulse;ctx.fillStyle='#fff';
   ctx.beginPath();ctx.arc(hx,hy,1.5+.72*pulse,0,TAU);ctx.fill();ctx.shadowBlur=0;
@@ -257,7 +277,8 @@ export default function RewriteComputer(){
     if(seq!==connectSeq||mode()!=='seeded'||refreshing)return;refreshing=true;
     try{
       const response=await fetch('/lambda-backend/seeded/snapshot',{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);
-      const data=await response.json();if(seq!==connectSeq)return;applySnapshot(engine,data);
+      const data=await response.json();if(seq!==connectSeq)return;applySnapshot(engine,data);engine.status='restoring exact';setStatusLabel('restoring exact');
+      const exact=await rebuildExactPath(engine,data.step,()=>seq===connectSeq&&mode()==='seeded');if(!exact)return;
       const queued=buffer.splice(0);for(const update of queued)if(!applySeededUpdate(engine,update))break;setUi();
     }catch(error){if(seq===connectSeq){engine.status='offline / retrying';setStatusLabel(engine.status);console.warn('[rewrite seeded]',error)}}finally{if(seq===connectSeq)refreshing=false}
   };
@@ -272,7 +293,7 @@ export default function RewriteComputer(){
       if(seq!==connectSeq)return;try{const data=JSON.parse(event.data);if(!refreshing&&Number(data.step)>engine.pathLastStep)refreshSeeded(seq);engine.status='24/7';setStatusLabel(engine.status)}catch{}
     });
     source.onerror=()=>{if(seq===connectSeq){engine.status='reconnecting';setStatusLabel(engine.status)}};
-    refreshing=false;refreshSeeded(seq);refreshTimer=setInterval(()=>refreshSeeded(seq),30000);
+    refreshing=false;refreshSeeded(seq);
   };
 
   const activateLive=()=>{
