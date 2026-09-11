@@ -1,5 +1,5 @@
 {
-  "name": "lambda-clock-cube",
+  "name": "lambda-clock",
   "private": true,
   "type": "module",
   "scripts": {
