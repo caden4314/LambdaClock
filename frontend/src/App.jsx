@@ -5,8 +5,8 @@ import SideMenu from './SideMenu.jsx';
 import DisplayLab from './DisplayLab.jsx';
 
 const MENU_ITEMS=[
-  {id:'clock',name:'Clock',note:'Church time'},
-  {id:'display',name:'Display Lab',note:'rendering system'}
+  {id:'clock',name:'Clock',note:'Church time',group:'Lambda'},
+  {id:'display',name:'Display Lab',note:'rendering system',group:'Other'}
 ];
 const two=n=>String(n).padStart(2,'0');
 
