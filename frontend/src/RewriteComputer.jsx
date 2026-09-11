@@ -23,57 +23,34 @@ function entropy(ones,zeros){
 }
 
 function heading(dir){return ['E','S','W','N'][dir&3]}
-function sameStep(a,b){return a&&b&&a[0]===b[0]}
-function makeLevels(){return [[[0,0,0]]]}
-function ensureLevel(levels,index){while(levels.length<=index)levels.push([])}
-function compactLevel(levels,index){
-  let changed=false;const source=levels[index];
-  while(source.length>LEVEL_MAX){
-    const count=Math.min(PROMOTE,source.length-1),chunk=source.slice(0,count+1),promoted=[chunk[0]];
-    for(let i=2;i<chunk.length;i+=2)promoted.push(chunk[i]);
-    const last=chunk[chunk.length-1];if(!sameStep(promoted[promoted.length-1],last))promoted.push(last);
-    source.splice(0,count);ensureLevel(levels,index+1);const next=levels[index+1];
-    for(const point of promoted)if(!sameStep(next[next.length-1],point))next.push(point);
-    changed=true;if(compactLevel(levels,index+1))changed=true;
-  }
-  return changed;
-}
-
-function addLodPoint(engine,point){
-  engine.levels[0].push(point);
-  return compactLevel(engine.levels,0);
-}
-
-function flattenLevels(levels){
-  const out=[];
-  for(let level=levels.length-1;level>=0;level--){
-    for(const point of levels[level])if(!sameStep(out[out.length-1],point))out.push(point);
-  }
-  return out;
-}
-
-function pathFromPoints(points){
-  const path=new Path2D();if(!points.length)return path;
-  path.moveTo(points[0][1],points[0][2]);
-  for(let i=1;i<points.length;i++)path.lineTo(points[i][1],points[i][2]);
-  return path;
-}
 function makeEngine(mode,seed){
-  const normalized=normalizeSeed(seed),path=new Path2D();path.moveTo(0,0);
+  const normalized=normalizeSeed(seed);
   return {
     mode,seed:normalized,epochMs:mode==='live'?Date.now():0,rate:RATE,status:mode==='live'?'live':'connecting',
     step:0,x:0,y:0,dir:initialDirection(normalized),fnv:FNV_OFFSET,bytePack:0,byteBits:0,byteCount:0,
-    ones:0,zeros:0,minX:0,maxX:0,minY:0,maxY:0,path,pathLastStep:0,
-    levels:makeLevels(),recent:[],sparks:[],bitTrail:[],byteTrail:[],acc:0,
-    camera:{scale:9,ox:0,oy:0,ready:false},serverTime:0,catchingUp:false,exactBuilding:false,exactBuildStep:0
+    ones:0,zeros:0,minX:0,maxX:0,minY:0,maxY:0,recent:[],sparks:[],bitTrail:[],byteTrail:[],acc:0,
+    camera:{scale:9,ox:0,oy:0,ready:false},serverTime:0,catchingUp:false,
+    baseImage:null,previewImage:null,liveInk:null,baseStep:0,displayStep:0,
+    rendering:false,renderId:0,renderTarget:0,renderProgress:0,renderStartedAt:0,lastRenderMs:0,
+    pendingRender:[],reframeQueued:false,resizePending:false,workerFailed:false,frameMs:0
   };
 }
 
-function rebuildPath(engine,points){
-  engine.path=pathFromPoints(points);engine.pathLastStep=points.length?points[points.length-1][0]:0;
-  engine.recent=[];
-  const tail=points.slice(-361);
-  for(let i=1;i<tail.length;i++)engine.recent.push([tail[i-1][1],tail[i-1][2],tail[i][1],tail[i][2]]);
+function disposeImage(image){try{image?.close?.()}catch{}}
+function makeRaster(w,h,dpr){
+  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(w*dpr));canvas.height=Math.max(1,Math.round(h*dpr));return canvas;
+}
+function setupWorldStroke(ctx,camera,dpr,alpha=.55){
+  const far=Math.max(0,Math.min(1,(1.15-camera.scale)/1.08));
+  ctx.setTransform(dpr*camera.scale,0,0,dpr*camera.scale,dpr*camera.ox,dpr*camera.oy);
+  ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=`rgba(255,255,255,${alpha-.20*far})`;
+  ctx.lineWidth=(.86+.22*(1-far))/camera.scale;
+}
+function resetLiveInk(engine,w,h,dpr,camera){engine.liveInk=makeRaster(w,h,dpr);engine.inkDpr=dpr;engine.inkCamera={...camera}}
+function strokePoints(engine,startX,startY,points){
+  if(!engine.liveInk||!points.length)return;
+  const ctx=engine.liveInk.getContext('2d');setupWorldStroke(ctx,engine.inkCamera,engine.inkDpr,.58);
+  ctx.beginPath();ctx.moveTo(startX,startY);for(const point of points)ctx.lineTo(Number(point[1]),Number(point[2]));ctx.stroke();
 }
 
 function addRecent(engine,px,py,x,y,turn=0){
@@ -103,32 +80,12 @@ function recordLiveBit(engine,bit){
   }
 }
 
-function advanceLive(engine){
+function advanceLive(engine,out){
   const px=engine.x,py=engine.y;
   if(engine.dir===0)engine.x++;else if(engine.dir===1)engine.y++;else if(engine.dir===2)engine.x--;else engine.y--;
   engine.step++;const turn=seededTurn(BigInt(engine.step),engine.seed),bit=turn>0?1:0;
   recordLiveBit(engine,bit);engine.dir=(engine.dir+(turn>0?1:3))&3;updateBounds(engine,engine.x,engine.y);
-  const point=[engine.step,engine.x,engine.y];addLodPoint(engine,point);
-  engine.path.lineTo(engine.x,engine.y);engine.pathLastStep=engine.step;
-  addRecent(engine,px,py,engine.x,engine.y,turn);
-}
-async function rebuildExactPath(engine,uptoStep,isCurrent){
-  const target=Math.max(0,Math.floor(Number(uptoStep)||0)),path=new Path2D(),cursor=makeSeededTurnCursor(engine.seed,1);
-  let x=0,y=0,dir=initialDirection(engine.seed),step=0,recent=[];path.moveTo(0,0);
-  engine.exactBuilding=true;engine.exactBuildStep=0;engine.path=path;engine.pathLastStep=0;engine.recent=[];engine.status='restoring exact';
-  while(step<target){
-    const end=Math.min(target,step+30000);
-    for(;step<end;step++){
-      const px=x,py=y;if(dir===0)x++;else if(dir===1)y++;else if(dir===2)x--;else y--;
-      const turn=cursor.next();dir=(dir+(turn>0?1:3))&3;path.lineTo(x,y);
-      recent.push([px,py,x,y]);if(recent.length>360)recent.shift();
-    }
-    engine.pathLastStep=step;engine.exactBuildStep=step;if(!isCurrent()){engine.exactBuilding=false;return false}
-    await new Promise(resolve=>(globalThis.requestAnimationFrame||setTimeout)(resolve));
-  }
-  engine.recent=recent;engine.pathLastStep=target;engine.exactBuilding=false;engine.exactBuildStep=target;
-  if(x!==engine.x||y!==engine.y||dir!==engine.dir)console.warn('[rewrite exact] reconstructed head mismatch',{x,y,dir,serverX:engine.x,serverY:engine.y,serverDir:engine.dir});
-  return true;
+  out.push([engine.step,engine.x,engine.y]);addRecent(engine,px,py,engine.x,engine.y,turn);
 }
 
 function parseHash(value){try{return BigInt(`0x${String(value||'0').replace(/^0x/,'')}`)&MASK64}catch{return 0n}}
@@ -152,15 +109,17 @@ function emitSeededBytes(engine,data,previousCount){
 }
 
 function applySeededUpdate(engine,data){
-  const previousBytes=engine.byteCount,points=Array.isArray(data.points)?data.points:[];
-  let px=engine.x,py=engine.y;
-  for(const point of points){
-    const s=Number(point[0]);if(s<=engine.pathLastStep)continue;
-    if(s>engine.pathLastStep+1){engine.status='resyncing';return false}
-    const x=Number(point[1]),y=Number(point[2]),turn=seededTurn(BigInt(s),engine.seed);
-    engine.path.lineTo(x,y);engine.pathLastStep=s;addRecent(engine,px,py,x,y,turn);px=x;py=y;
+  const previousBytes=engine.byteCount,points=Array.isArray(data.points)?data.points:[],oldX=engine.x,oldY=engine.y,oldStep=engine.step;
+  const fresh=points.filter(point=>Number(point[0])>oldStep);
+  if(fresh.length&&Number(fresh[0][0])!==oldStep+1){engine.status='resyncing';return false}
+  for(let i=1;i<fresh.length;i++)if(Number(fresh[i][0])!==Number(fresh[i-1][0])+1){engine.status='resyncing';return false}
+  if(fresh.length){
+    strokePoints(engine,oldX,oldY,fresh);
+    if(engine.rendering)for(const point of fresh)if(Number(point[0])>engine.renderTarget)engine.pendingRender.push(point);
+    let px=oldX,py=oldY;for(const point of fresh){const x=Number(point[1]),y=Number(point[2]);addRecent(engine,px,py,x,y,0);px=x;py=y}
+    engine.displayStep=Number(fresh[fresh.length-1][0]);
   }
-  if(Number(data.step)>engine.pathLastStep){engine.status='resyncing';return false}
+  if(Number(data.step)>engine.displayStep&&Number(data.step)>oldStep){engine.status='resyncing';return false}
   emitSeededBytes(engine,data,previousBytes);
   engine.step=Number(data.step)||engine.step;engine.x=Number(data.x)||0;engine.y=Number(data.y)||0;engine.dir=Number(data.dir)&3;
   engine.fnv=parseHash(data.fnv64);engine.byteCount=Number(data.byteCount)||0;engine.ones=Number(data.ones)||0;engine.zeros=Number(data.zeros)||0;
@@ -173,27 +132,25 @@ function targetCamera(engine,w,h){
   const spanX=Math.max(1,engine.maxX-engine.minX),spanY=Math.max(1,engine.maxY-engine.minY);
   const narrow=w<560,portrait=h>w*1.1,padX=narrow?.10:.16,padY=portrait?.11:.16;
   const scale=Math.min(11,w*(1-padX*2)/spanX,h*(1-padY*2)/spanY);
-  return {scale,ox:w*.5-(engine.minX+engine.maxX)*.5*scale,oy:h*.5-(engine.minY+engine.maxY)*.5*scale};
+  return {scale,ox:w*.5-(engine.minX+engine.maxX)*.5*scale,oy:h*.5-(engine.minY+engine.maxY)*.5*scale,ready:true};
 }
-
-function updateCamera(engine,w,h,dt){
-  const target=targetCamera(engine,w,h),camera=engine.camera;
-  if(!camera.ready){Object.assign(camera,target,{ready:true});return camera}
-  const rate=target.scale<camera.scale?2.55:4.1,k=1-Math.exp(-Math.max(.001,dt)*rate);
-  camera.scale+=(target.scale-camera.scale)*k;camera.ox+=(target.ox-camera.ox)*k;camera.oy+=(target.oy-camera.oy)*k;
-  return camera;
+function cameraNeedsReframe(engine,w,h){
+  const c=engine.camera;if(!c.ready)return true;
+  const l=c.ox+engine.minX*c.scale,r=c.ox+engine.maxX*c.scale,t=c.oy+engine.minY*c.scale,b=c.oy+engine.maxY*c.scale;
+  const mx=Math.max(22,w*.065),my=Math.max(22,h*.065);
+  return l<mx||r>w-mx||t<my||b>h-my||engine.resizePending;
 }
 function screenPoint(camera,x,y){return [camera.ox+x*camera.scale,camera.oy+y*camera.scale]}
 function groupedBits(bits){const text=(bits||[]).join('');return text.replace(/(.{8})/g,'$1 ').trim()}
 function hexBytes(bytes){return (bytes||[]).map(v=>Number(v).toString(16).padStart(2,'0').toUpperCase()).join(' ')}
-function drawPath(ctx,engine,camera){
-  const far=Math.max(0,Math.min(1,(1.15-camera.scale)/1.08));
-  ctx.save();ctx.translate(camera.ox,camera.oy);ctx.scale(camera.scale,camera.scale);ctx.lineCap='round';ctx.lineJoin='round';
-  if(far>.01){
-    ctx.strokeStyle=`rgba(255,255,255,${.035+.055*far})`;ctx.lineWidth=(2.4+2.2*far)/camera.scale;
-    ctx.shadowColor=`rgba(255,255,255,${.08+.08*far})`;ctx.shadowBlur=4+6*far;ctx.stroke(engine.path);ctx.shadowBlur=0;
-  }
-  ctx.strokeStyle=`rgba(255,255,255,${.56-.27*far})`;ctx.lineWidth=(.82+.20*(1-far))/camera.scale;ctx.stroke(engine.path);ctx.restore();
+function buildPreview(engine,points,w,h,dpr,camera){
+  const raster=makeRaster(w,h,dpr),ctx=raster.getContext('2d');setupWorldStroke(ctx,camera,dpr,.26);
+  if(points.length){ctx.beginPath();ctx.moveTo(Number(points[0][1]),Number(points[0][2]));for(let i=1;i<points.length;i++)ctx.lineTo(Number(points[i][1]),Number(points[i][2]));ctx.stroke()}
+  engine.previewImage=raster;
+}
+function drawRaster(ctx,engine,w,h){
+  const image=engine.baseImage||engine.previewImage;if(image)ctx.drawImage(image,0,0,image.width,image.height,0,0,w,h);
+  if(engine.liveInk)ctx.drawImage(engine.liveInk,0,0,engine.liveInk.width,engine.liveInk.height,0,0,w,h);
 }
 
 function drawOrigin(ctx,camera){
@@ -202,8 +159,9 @@ function drawOrigin(ctx,camera){
 }
 function drawRecent(ctx,engine,camera){
   if(engine.recent.length<1)return;ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
-  for(let i=0;i<engine.recent.length;i++){
-    const p=engine.recent[i],q=(i+1)/engine.recent.length,[ax,ay]=screenPoint(camera,p[0],p[1]),[bx,by]=screenPoint(camera,p[2],p[3]);
+  const keep=camera.scale<.35?96:camera.scale<.8?160:engine.recent.length,start=Math.max(0,engine.recent.length-keep);
+  for(let i=start;i<engine.recent.length;i++){
+    const p=engine.recent[i],q=(i-start+1)/Math.max(1,engine.recent.length-start),[ax,ay]=screenPoint(camera,p[0],p[1]),[bx,by]=screenPoint(camera,p[2],p[3]);
     ctx.strokeStyle=`rgba(255,255,255,${.04+.78*q*q})`;ctx.lineWidth=.7+1.25*q;
     ctx.shadowColor=`rgba(255,255,255,${.08+.38*q})`;ctx.shadowBlur=2+8*q;
     ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();
@@ -220,7 +178,6 @@ function drawSparks(ctx,engine,camera,dt){
 }
 
 function drawHead(ctx,engine,camera,t){
-  if(engine.exactBuilding)return;
   const [hx,hy]=screenPoint(camera,engine.x,engine.y),pulse=.5+.5*Math.sin(t*10),r=6+2*pulse;
   ctx.save();ctx.shadowColor='rgba(255,255,255,.9)';ctx.shadowBlur=9+9*pulse;ctx.fillStyle='#fff';
   ctx.beginPath();ctx.arc(hx,hy,1.5+.72*pulse,0,TAU);ctx.fill();ctx.shadowBlur=0;
@@ -262,61 +219,106 @@ function drawStatus(ctx,engine,w,h){
   ctx.fillText(`${engine.step.toLocaleString()} turns  •  ${engine.rate.toLocaleString()}/s  •  ${state}`,w-18,h-16);ctx.restore();
 }
 export default function RewriteComputer(){
-  let canvas,observer,frame,last=0,dpr=1,w=1,h=1,source=null,refreshTimer=null,connectSeq=0,refreshing=false,buffer=[];
+  let canvas,observer,frame,worker=null,source=null,last=0,dpr=1,w=1,h=1,connectSeq=0,refreshing=false,buffer=[],renderSerial=0,debugAt=0;
   let engine=makeEngine('seeded',0n);
   const [mode,setMode]=createSignal('seeded'),[seedLabel,setSeedLabel]=createSignal('connecting…'),[statusLabel,setStatusLabel]=createSignal('connecting');
-
+  const setUi=()=>{setSeedLabel(seedHex(engine.seed));setStatusLabel(engine.status)};
+  const cancelRender=()=>{if(!engine.rendering)return;worker?.postMessage({type:'cancel',id:++renderSerial});engine.rendering=false;engine.pendingRender=[]};
   const resize=()=>{
     if(!canvas)return;const rect=canvas.getBoundingClientRect();w=Math.max(1,rect.width);h=Math.max(1,rect.height);dpr=Math.min(globalThis.devicePixelRatio||1,w<600?2:2.75);
-    canvas.width=Math.max(1,Math.round(w*dpr));canvas.height=Math.max(1,Math.round(h*dpr));engine.camera.ready=false;
+    canvas.width=Math.max(1,Math.round(w*dpr));canvas.height=Math.max(1,Math.round(h*dpr));if(engine.camera.ready)engine.resizePending=true;
   };
-  const disconnect=()=>{connectSeq++;source?.close();source=null;if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;buffer=[];refreshing=false};
+  const disconnect=()=>{connectSeq++;source?.close();source=null;cancelRender();buffer=[];refreshing=false;disposeImage(engine.baseImage)};
 
-  const setUi=()=>{setSeedLabel(seedHex(engine.seed));setStatusLabel(engine.status)};
+  const acceptExact=(image,job,head)=>{
+    if(job.id!==engine.renderId){disposeImage(image);return}
+    if(Math.abs(job.width-w)>1||Math.abs(job.height-h)>1||Math.abs(job.dpr-dpr)>.01){disposeImage(image);engine.rendering=false;engine.resizePending=true;requestExact('reframing');return}
+    disposeImage(engine.baseImage);engine.baseImage=image;engine.previewImage=null;engine.baseStep=job.step;engine.camera={...job.camera,ready:true};
+    resetLiveInk(engine,w,h,dpr,engine.camera);
+    const replay=engine.pendingRender.filter(point=>Number(point[0])>job.step);strokePoints(engine,head.x,head.y,replay);
+    engine.displayStep=replay.length?Number(replay[replay.length-1][0]):job.step;engine.pendingRender=[];engine.rendering=false;engine.renderProgress=100;
+    engine.resizePending=false;engine.lastRenderMs=performance.now()-engine.renderStartedAt;engine.status=engine.mode==='seeded'?'24/7':'live';setUi();
+    if(engine.reframeQueued||cameraNeedsReframe(engine,w,h)){engine.reframeQueued=false;queueMicrotask(()=>requestExact('reframing'))}
+  };
+
+  const fallbackRender=async job=>{
+    const raster=makeRaster(job.width,job.height,job.dpr),ctx=raster.getContext('2d'),cursor=makeSeededTurnCursor(job.seed,1);
+    let x=0,y=0,dir=initialDirection(job.seed),done=0;setupWorldStroke(ctx,job.camera,job.dpr,.56);
+    while(done<job.step&&job.id===engine.renderId){
+      const end=Math.min(job.step,done+12000);ctx.beginPath();ctx.moveTo(x,y);
+      for(;done<end;done++){if(dir===0)x++;else if(dir===1)y++;else if(dir===2)x--;else y--;const turn=cursor.next();dir=(dir+(turn>0?1:3))&3;ctx.lineTo(x,y)}ctx.stroke();
+      engine.renderProgress=job.step?Math.floor(done*100/job.step):100;engine.status=`exact ${engine.renderProgress}%`;setStatusLabel(engine.status);
+      await new Promise(resolve=>requestAnimationFrame(resolve));
+    }
+    if(job.id===engine.renderId)acceptExact(raster,job,{x,y,dir});
+  };
+  const requestExact=(reason='exact')=>{
+    if(!canvas||engine.step<1)return;if(engine.rendering){engine.reframeQueued=true;return}
+    const camera=targetCamera(engine,w,h),id=++renderSerial,job={type:'render',id,seed:seedHex(engine.seed),step:engine.step,width:w,height:h,dpr,camera};
+    engine.rendering=true;engine.renderId=id;engine.renderTarget=engine.step;engine.renderProgress=0;engine.renderStartedAt=performance.now();engine.pendingRender=[];engine.reframeQueued=false;
+    engine.status=`${reason} 0%`;setStatusLabel(engine.status);engine.currentRenderJob=job;
+    if(worker&&!engine.workerFailed)worker.postMessage(job);else fallbackRender(job);
+  };
+  const maybeReframe=()=>{if(engine.step>0&&cameraNeedsReframe(engine,w,h))requestExact('reframing exact')};
+
   const refreshSeeded=async seq=>{
-    if(seq!==connectSeq||mode()!=='seeded'||refreshing)return;refreshing=true;
+    if(seq!==connectSeq||mode()!=='seeded'||refreshing)return;refreshing=true;cancelRender();
     try{
       const response=await fetch('/lambda-backend/seeded/snapshot',{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);
-      const data=await response.json();if(seq!==connectSeq)return;applySnapshot(engine,data);engine.status='restoring exact';setStatusLabel('restoring exact');
-      const exact=await rebuildExactPath(engine,data.step,()=>seq===connectSeq&&mode()==='seeded');if(!exact)return;
-      const queued=buffer.splice(0);for(const update of queued)if(!applySeededUpdate(engine,update))break;setUi();
+      const data=await response.json();if(seq!==connectSeq)return;applySnapshot(engine,data);engine.camera=targetCamera(engine,w,h);engine.displayStep=engine.step;
+      resetLiveInk(engine,w,h,dpr,engine.camera);buildPreview(engine,Array.isArray(data.points)?data.points:[],w,h,dpr,engine.camera);requestExact('restoring exact');
+      const queued=buffer.splice(0);for(const update of queued)if(!applySeededUpdate(engine,update)){queueMicrotask(()=>refreshSeeded(seq));break}setUi();
     }catch(error){if(seq===connectSeq){engine.status='offline / retrying';setStatusLabel(engine.status);console.warn('[rewrite seeded]',error)}}finally{if(seq===connectSeq)refreshing=false}
   };
 
   const activateSeeded=()=>{
-    disconnect();setMode('seeded');engine=makeEngine('seeded',0n);engine.status='connecting';setSeedLabel('connecting…');setStatusLabel('connecting');engine.camera.ready=false;
+    disconnect();setMode('seeded');engine=makeEngine('seeded',0n);engine.status='connecting';setSeedLabel('connecting…');setStatusLabel('connecting');
     const seq=connectSeq;refreshing=true;source=new EventSource('/lambda-backend/seeded/stream');
     source.addEventListener('update',event=>{
-      if(seq!==connectSeq)return;try{const data=JSON.parse(event.data);if(refreshing)buffer.push(data);else if(!applySeededUpdate(engine,data))refreshSeeded(seq);setUi()}catch(error){console.warn('[rewrite stream]',error)}
+      if(seq!==connectSeq)return;try{const data=JSON.parse(event.data);if(refreshing)buffer.push(data);else if(!applySeededUpdate(engine,data))refreshSeeded(seq);else{setUi();maybeReframe()}}catch(error){console.warn('[rewrite stream]',error)}
     });
     source.addEventListener('hello',event=>{
-      if(seq!==connectSeq)return;try{const data=JSON.parse(event.data);if(!refreshing&&Number(data.step)>engine.pathLastStep)refreshSeeded(seq);engine.status='24/7';setStatusLabel(engine.status)}catch{}
+      if(seq!==connectSeq)return;try{const data=JSON.parse(event.data);if(!refreshing&&Number(data.step)>engine.displayStep+1)refreshSeeded(seq)}catch{}
     });
     source.onerror=()=>{if(seq===connectSeq){engine.status='reconnecting';setStatusLabel(engine.status)}};
     refreshing=false;refreshSeeded(seq);
   };
-
   const activateLive=()=>{
-    disconnect();setMode('live');engine=makeEngine('live',freshSeed());engine.camera.ready=false;setUi();
+    disconnect();setMode('live');engine=makeEngine('live',freshSeed());engine.camera=targetCamera(engine,w,h);resetLiveInk(engine,w,h,dpr,engine.camera);engine.displayStep=0;setUi();
   };
-
   const copyCheckpoint=()=>{
     const text=`rewrite-${engine.mode} seed=${seedHex(engine.seed)} turns=${engine.step} bytes=${engine.byteCount} fnv64=${engine.fnv.toString(16).padStart(16,'0')} pos=${engine.x},${engine.y} heading=${heading(engine.dir)}${engine.mode==='seeded'?` epoch=${new Date(engine.epochMs).toISOString()}`:''}`;
     globalThis.navigator?.clipboard?.writeText?.(text).catch?.(()=>{});
   };
-
-  const draw=now=>{
-    const dt=last?Math.min(.08,(now-last)/1000):0;last=now;
-    if(engine.mode==='live'){
-      engine.acc+=dt*RATE;let guard=0;while(engine.acc>=1&&guard++<160){advanceLive(engine);engine.acc-=1}
-    }
-    const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
-    const camera=updateCamera(engine,w,h,dt);drawPath(ctx,engine,camera);drawOrigin(ctx,camera);drawRecent(ctx,engine,camera);drawSparks(ctx,engine,camera,dt);drawHead(ctx,engine,camera,now/1000);drawReadout(ctx,engine,w,h);drawStatus(ctx,engine,w,h);
-    frame=requestAnimationFrame(draw);
+  const publishDebug=now=>{
+    if(now<debugAt)return;debugAt=now+500;globalThis.__rewriteDebug={mode:engine.mode,step:engine.step,displayStep:engine.displayStep,baseStep:engine.baseStep,rate:engine.rate,rendering:engine.rendering,progress:engine.renderProgress,lastRenderMs:Math.round(engine.lastRenderMs),frameMs:Number(engine.frameMs.toFixed(2)),seed:seedHex(engine.seed),camera:{...engine.camera},worker:!!worker&&!engine.workerFailed};
   };
 
-  onMount(()=>{resize();observer=new ResizeObserver(resize);observer.observe(canvas);activateSeeded();frame=requestAnimationFrame(draw)});
-  onCleanup(()=>{disconnect();cancelAnimationFrame(frame);observer?.disconnect()});
+  const draw=now=>{
+    const raw=last?Math.min(.08,(now-last)/1000):0;last=now;engine.frameMs=engine.frameMs?engine.frameMs*.92+raw*1000*.08:raw*1000;
+    if(engine.mode==='live'){
+      const sx=engine.x,sy=engine.y,points=[];engine.acc+=raw*RATE;let guard=0;
+      while(engine.acc>=1&&guard++<180){advanceLive(engine,points);engine.acc-=1}
+      if(points.length){strokePoints(engine,sx,sy,points);engine.displayStep=engine.step;if(engine.rendering)for(const point of points)if(Number(point[0])>engine.renderTarget)engine.pendingRender.push(point)}
+    }
+    maybeReframe();const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';
+    drawRaster(ctx,engine,w,h);const camera=engine.camera;drawOrigin(ctx,camera);drawRecent(ctx,engine,camera);drawSparks(ctx,engine,camera,raw);drawHead(ctx,engine,camera,now/1000);drawReadout(ctx,engine,w,h);drawStatus(ctx,engine,w,h);publishDebug(now);
+    frame=requestAnimationFrame(draw);
+  };
+  onMount(()=>{
+    resize();observer=new ResizeObserver(resize);observer.observe(canvas);
+    try{
+      worker=new Worker(new URL('./rewriteRaster.worker.js',import.meta.url),{type:'module'});
+      worker.onmessage=event=>{const msg=event.data||{};if(msg.id!==engine.renderId){disposeImage(msg.bitmap);return}
+        if(msg.type==='progress'){engine.renderProgress=msg.progress;engine.status=`exact ${msg.progress}%`;setStatusLabel(engine.status);return}
+        if(msg.type==='rendered'){acceptExact(msg.bitmap,engine.currentRenderJob,{x:msg.x,y:msg.y,dir:msg.dir});return}
+        if(msg.type==='error'){console.warn('[rewrite worker]',msg.message);engine.workerFailed=true;engine.rendering=false;fallbackRender(engine.currentRenderJob)}
+      };
+      worker.onerror=error=>{console.warn('[rewrite worker error]',error);engine.workerFailed=true;if(engine.rendering){engine.rendering=false;fallbackRender(engine.currentRenderJob)}};
+    }catch(error){console.warn('[rewrite worker unavailable]',error);engine.workerFailed=true}
+    activateSeeded();frame=requestAnimationFrame(draw);
+  });
+  onCleanup(()=>{disconnect();cancelAnimationFrame(frame);observer?.disconnect();worker?.terminate();disposeImage(engine.baseImage);delete globalThis.__rewriteDebug});
 
   return <div class="rewrite-shell">
     <canvas ref={canvas} class="math-canvas rewrite-canvas" aria-label="Seeded and live recursive rewrite computer" onPointerDown={copyCheckpoint}/>
