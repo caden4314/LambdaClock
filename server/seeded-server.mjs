@@ -7,7 +7,7 @@ import {initialDirection,normalizeSeed,seededTurn,seedHex} from '../shared/rewri
 
 const PORT=Number(process.env.PORT||8790);
 const HOST=process.env.HOST||'127.0.0.1';
-const RATE=Math.max(1,Number(process.env.REWRITE_RATE||210));
+const RATE=Math.max(1,Number(process.env.REWRITE_RATE||1000));
 const STATE_DIR=process.env.REWRITE_STATE_DIR||'/var/lib/lambda-backend';
 const STATE_FILE=`${STATE_DIR}/seeded-state.json`;
 const LEVEL_MAX=Math.max(256,Number(process.env.REWRITE_LEVEL_MAX||1024));
@@ -15,7 +15,7 @@ const PROMOTE=Math.max(128,Math.floor(LEVEL_MAX/2));
 const SAVE_MS=5000,BROADCAST_MS=100,TICK_MS=25;
 const FNV_OFFSET=0xcbf29ce484222325n,FNV_PRIME=0x100000001b3n,MASK64=0xffffffffffffffffn;
 
-let seed=0n,epochMs=0,step=0,x=0,y=0,dir=0;
+let seed=0n,epochMs=0,rateEpochMs=0,rateEpochStep=0,step=0,x=0,y=0,dir=0;
 let fnv=FNV_OFFSET,bytePack=0,byteBits=0,byteCount=0;
 let ones=0,zeros=0,minX=0,maxX=0,minY=0,maxY=0;
 let levels=[[[0,0,0]]],pending=[],saveTimer=null;
@@ -63,7 +63,7 @@ function flattenHistory(){
 }
 function persistedState(){
   return {
-    version:2,seed:stateSeed(),epochMs,rate:RATE,step,x,y,dir,
+    version:3,seed:stateSeed(),epochMs,rate:RATE,rateEpochMs,rateEpochStep,step,x,y,dir,
     fnv:hashHex(),bytePack,byteBits,byteCount,ones,zeros,
     bounds:{minX,maxX,minY,maxY},levels,updatedAt:nowIso()
   };
@@ -79,6 +79,10 @@ async function saveState(){
 function loadObject(data){
   seed=normalizeSeed(data.seed);epochMs=Number(data.epochMs)||Date.now();
   step=Number(data.step)||0;x=Number(data.x)||0;y=Number(data.y)||0;dir=Number(data.dir)&3;
+  const storedRate=Math.max(1,Number(data.rate)||RATE),savedAnchor=Number(data.rateEpochMs);
+  rateEpochMs=Number.isFinite(savedAnchor)&&savedAnchor>0?savedAnchor:epochMs;
+  rateEpochStep=Number.isFinite(Number(data.rateEpochStep))?Number(data.rateEpochStep):0;
+  if(storedRate!==RATE){rateEpochMs=Date.now();rateEpochStep=step}
   fnv=BigInt(`0x${String(data.fnv||'cbf29ce484222325').replace(/^0x/,'')}`)&MASK64;
   bytePack=Number(data.bytePack)||0;byteBits=Number(data.byteBits)||0;byteCount=Number(data.byteCount)||0;
   ones=Number(data.ones)||0;zeros=Number(data.zeros)||0;
@@ -88,7 +92,7 @@ function loadObject(data){
 
 async function initialize(){
   try{loadObject(JSON.parse(await readFile(STATE_FILE,'utf8')))}catch{
-    seed=BigInt(`0x${randomBytes(8).toString('hex')}`);epochMs=Date.now();dir=initialDirection(seed);
+    seed=BigInt(`0x${randomBytes(8).toString('hex')}`);epochMs=Date.now();rateEpochMs=epochMs;rateEpochStep=0;dir=initialDirection(seed);
     levels=[[[0,0,0]]];await saveState();
   }
 }
@@ -109,7 +113,7 @@ function advanceOne(){
   if(clients.size)pending.push(point);
 }
 
-function targetStep(){return Math.max(step,Math.floor((Date.now()-epochMs)*RATE/1000))}
+function targetStep(){return Math.max(step,rateEpochStep+Math.floor((Date.now()-rateEpochMs)*RATE/1000))}
 function advanceTowardTarget(){
   const target=targetStep(),remaining=target-step,count=Math.min(remaining,20000);
   for(let i=0;i<count;i++)advanceOne();
@@ -132,7 +136,7 @@ function recentBytes(limit=16){
 }
 function snapshot(){
   return {
-    version:2,mode:'seeded',seed:stateSeed(),epochMs,rate:RATE,
+    version:3,mode:'seeded',seed:stateSeed(),epochMs,rate:RATE,
     serverTime:Date.now(),step,x,y,dir,heading:heading(),fnv64:hashHex(),
     byteCount,ones,zeros,bounds:{minX,maxX,minY,maxY},
     points:flattenHistory(),recentBits:recentBits(),recentBytes:recentBytes(),

@@ -2,7 +2,7 @@ import {createSignal,onCleanup,onMount} from 'solid-js';
 import {initialDirection,normalizeSeed,seededTurn,seedHex} from '../../shared/rewrite-seed.js';
 
 const TAU=Math.PI*2;
-const RATE=210;
+const RATE=1000;
 const LEVEL_MAX=1024;
 const PROMOTE=512;
 const FNV_OFFSET=0xcbf29ce484222325n;
@@ -72,13 +72,13 @@ function makeEngine(mode,seed){
 function rebuildPath(engine,points){
   engine.path=pathFromPoints(points);engine.pathLastStep=points.length?points[points.length-1][0]:0;
   engine.recent=[];
-  const tail=points.slice(-141);
+  const tail=points.slice(-361);
   for(let i=1;i<tail.length;i++)engine.recent.push([tail[i-1][1],tail[i-1][2],tail[i][1],tail[i][2]]);
 }
 
 function addRecent(engine,px,py,x,y,turn=0){
-  engine.recent.push([px,py,x,y]);if(engine.recent.length>140)engine.recent.shift();
-  if(engine.step%7===0)engine.sparks.push({x,y,side:turn>=0?1:-1,age:0});
+  engine.recent.push([px,py,x,y]);if(engine.recent.length>360)engine.recent.shift();
+  if(engine.step%23===0){engine.sparks.push({x,y,side:turn>=0?1:-1,age:0});if(engine.sparks.length>36)engine.sparks.shift()}
 }
 
 function updateBounds(engine,x,y){
@@ -151,28 +151,36 @@ function applySeededUpdate(engine,data){
 }
 
 function targetCamera(engine,w,h){
-  const spanX=Math.max(1,engine.maxX-engine.minX),spanY=Math.max(1,engine.maxY-engine.minY),pad=.18;
-  const scale=Math.min(10,w*(1-pad*2)/spanX,h*(1-pad*2)/spanY);
+  const spanX=Math.max(1,engine.maxX-engine.minX),spanY=Math.max(1,engine.maxY-engine.minY);
+  const narrow=w<560,portrait=h>w*1.1,padX=narrow?.10:.16,padY=portrait?.11:.16;
+  const scale=Math.min(11,w*(1-padX*2)/spanX,h*(1-padY*2)/spanY);
   return {scale,ox:w*.5-(engine.minX+engine.maxX)*.5*scale,oy:h*.5-(engine.minY+engine.maxY)*.5*scale};
 }
 
 function updateCamera(engine,w,h,dt){
   const target=targetCamera(engine,w,h),camera=engine.camera;
   if(!camera.ready){Object.assign(camera,target,{ready:true});return camera}
-  const k=1-Math.exp(-Math.max(.001,dt)*4.6);
+  const rate=target.scale<camera.scale?2.55:4.1,k=1-Math.exp(-Math.max(.001,dt)*rate);
   camera.scale+=(target.scale-camera.scale)*k;camera.ox+=(target.ox-camera.ox)*k;camera.oy+=(target.oy-camera.oy)*k;
   return camera;
 }
-
 function screenPoint(camera,x,y){return [camera.ox+x*camera.scale,camera.oy+y*camera.scale]}
 function groupedBits(bits){const text=(bits||[]).join('');return text.replace(/(.{8})/g,'$1 ').trim()}
 function hexBytes(bytes){return (bytes||[]).map(v=>Number(v).toString(16).padStart(2,'0').toUpperCase()).join(' ')}
 function drawPath(ctx,engine,camera){
-  ctx.save();ctx.translate(camera.ox,camera.oy);ctx.scale(camera.scale,camera.scale);
-  ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle='rgba(255,255,255,.46)';
-  ctx.lineWidth=Math.max(.72,Math.min(1.18,camera.scale*.11))/camera.scale;ctx.stroke(engine.path);ctx.restore();
+  const far=Math.max(0,Math.min(1,(1.15-camera.scale)/1.08));
+  ctx.save();ctx.translate(camera.ox,camera.oy);ctx.scale(camera.scale,camera.scale);ctx.lineCap='round';ctx.lineJoin='round';
+  if(far>.01){
+    ctx.strokeStyle=`rgba(255,255,255,${.035+.055*far})`;ctx.lineWidth=(2.4+2.2*far)/camera.scale;
+    ctx.shadowColor=`rgba(255,255,255,${.08+.08*far})`;ctx.shadowBlur=4+6*far;ctx.stroke(engine.path);ctx.shadowBlur=0;
+  }
+  ctx.strokeStyle=`rgba(255,255,255,${.56-.27*far})`;ctx.lineWidth=(.82+.20*(1-far))/camera.scale;ctx.stroke(engine.path);ctx.restore();
 }
 
+function drawOrigin(ctx,camera){
+  const [x,y]=screenPoint(camera,0,0);if(x<-20||y<-20||x>ctx.canvas.width||y>ctx.canvas.height)return;
+  ctx.save();ctx.strokeStyle='rgba(255,255,255,.10)';ctx.lineWidth=.7;ctx.beginPath();ctx.arc(x,y,4.5,0,TAU);ctx.stroke();ctx.restore();
+}
 function drawRecent(ctx,engine,camera){
   if(engine.recent.length<1)return;ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
   for(let i=0;i<engine.recent.length;i++){
@@ -206,23 +214,32 @@ function ageText(engine){
 }
 
 function drawReadout(ctx,engine,w,h){
-  const compact=w<760,bits=groupedBits(engine.bitTrail).slice(compact?-39:-72),bytes=hexBytes(engine.byteTrail).split(' ').slice(compact?-8:-16).join(' ');
-  const total=engine.ones+engine.zeros,p=total?engine.ones/total:0,e=entropy(engine.ones,engine.zeros),mono='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-  const x=18,y=h-(compact?104:112),line=16;ctx.save();ctx.textAlign='left';ctx.font=`${compact?9:10}px ${mono}`;
-  const label=(name,row)=>{ctx.fillStyle='rgba(255,255,255,.30)';ctx.fillText(name,x,y+line*row)};
-  label('MODE',0);ctx.fillStyle='rgba(255,255,255,.62)';ctx.fillText(engine.mode==='seeded'?`SEEDED 24/7  ${engine.status.toUpperCase()}`:'LIVE / FRESH SEED',x+90,y);
-  label('SEED',1);ctx.fillStyle='rgba(255,255,255,.54)';ctx.fillText(seedHex(engine.seed),x+90,y+line);
-  label('TURN STREAM',2);ctx.fillStyle='rgba(255,255,255,.54)';ctx.fillText(bits||'—',x+90,y+line*2);
-  label('OUTPUT BUS',3);ctx.fillStyle='rgba(255,255,255,.54)';ctx.fillText(bytes||'—',x+90,y+line*3);
-  label('CHECKPOINT',4);ctx.fillStyle='rgba(255,255,255,.59)';ctx.fillText(`${engine.step} / 0x${engine.fnv.toString(16).padStart(16,'0')}`,x+90,y+line*4);
-  label('ANALYSIS',5);ctx.fillStyle='rgba(255,255,255,.46)';ctx.fillText(`H ${e.toFixed(4)}   1s ${(p*100).toFixed(2)}%   AGE ${ageText(engine)}`,x+90,y+line*5);
-  ctx.fillStyle='rgba(255,255,255,.20)';ctx.font=`${compact?8:9}px ${mono}`;ctx.fillText('CLICK CANVAS TO COPY CHECKPOINT  •  FNV64 NON-CRYPTO',x,y+line*6);ctx.restore();
+  const narrow=w<560,compact=w<820,total=engine.ones+engine.zeros,p=total?engine.ones/total:0,e=entropy(engine.ones,engine.zeros);
+  const mono='ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',x=narrow?12:18,line=narrow?15:16;
+  const bits=groupedBits(engine.bitTrail).slice(compact?-39:-72),bytes=hexBytes(engine.byteTrail).split(' ').slice(compact?-8:-16).join(' ');
+  const rows=narrow?4:7,panelH=rows*line+18,y=h-panelH+5;
+  const shade=ctx.createLinearGradient(0,y-18,0,h);shade.addColorStop(0,'rgba(0,0,0,0)');shade.addColorStop(.22,'rgba(0,0,0,.58)');shade.addColorStop(1,'rgba(0,0,0,.88)');
+  ctx.fillStyle=shade;ctx.fillRect(0,y-18,w,h-y+18);ctx.save();ctx.textAlign='left';ctx.font=`${narrow?8.5:compact?9:10}px ${mono}`;
+  const label=(name,row)=>{ctx.fillStyle='rgba(255,255,255,.28)';ctx.fillText(name,x,y+line*row)};
+  const value=(text,row,alpha=.54)=>{ctx.fillStyle=`rgba(255,255,255,${alpha})`;ctx.fillText(text,x+(narrow?64:90),y+line*row)};
+  if(narrow){
+    label('MODE',0);value(`${engine.mode==='seeded'?'SEEDED 24/7':'LIVE'}  •  ${engine.rate.toLocaleString()} /s`,0,.68);
+    label('SEED',1);value(seedHex(engine.seed),1,.50);
+    label('STEP',2);value(`${engine.step.toLocaleString()}  •  ${heading(engine.dir)}  •  AGE ${ageText(engine)}`,2,.58);
+    label('DATA',3);value(`H ${e.toFixed(4)}  •  ${(p*100).toFixed(1)}% 1s  •  ${engine.byteCount.toLocaleString()} B`,3,.46);
+  }else{
+    label('MODE',0);value(engine.mode==='seeded'?`SEEDED 24/7  ${engine.status.toUpperCase()}  •  ${engine.rate.toLocaleString()} /s`:`LIVE / FRESH SEED  •  ${engine.rate.toLocaleString()} /s`,0,.64);
+    label('SEED',1);value(seedHex(engine.seed),1);label('TURN STREAM',2);value(bits||'—',2);label('OUTPUT BUS',3);value(bytes||'—',3);
+    label('CHECKPOINT',4);value(`${engine.step.toLocaleString()} / 0x${engine.fnv.toString(16).padStart(16,'0')}`,4,.59);
+    label('ANALYSIS',5);value(`H ${e.toFixed(4)}   1s ${(p*100).toFixed(2)}%   AGE ${ageText(engine)}`,5,.46);
+    ctx.fillStyle='rgba(255,255,255,.18)';ctx.font=`${compact?8:9}px ${mono}`;ctx.fillText('CLICK CANVAS TO COPY CHECKPOINT  •  FNV64 NON-CRYPTO',x,y+line*6);
+  }
+  ctx.restore();
 }
-
 function drawStatus(ctx,engine,w,h){
-  ctx.save();ctx.fillStyle='rgba(255,255,255,.46)';ctx.font=`${Math.max(10,Math.min(13,w/65))}px ui-monospace, monospace`;ctx.textAlign='right';
+  if(w<620)return;ctx.save();ctx.fillStyle='rgba(255,255,255,.42)';ctx.font=`${Math.max(10,Math.min(13,w/65))}px ui-monospace, monospace`;ctx.textAlign='right';
   const state=engine.mode==='seeded'?`${engine.status} • shared world`:'fresh seed • local';
-  ctx.fillText(`${engine.step} turns  •  ${state}`,w-18,h-16);ctx.restore();
+  ctx.fillText(`${engine.step.toLocaleString()} turns  •  ${engine.rate.toLocaleString()}/s  •  ${state}`,w-18,h-16);ctx.restore();
 }
 export default function RewriteComputer(){
   let canvas,observer,frame,last=0,dpr=1,w=1,h=1,source=null,refreshTimer=null,connectSeq=0,refreshing=false,buffer=[];
@@ -230,7 +247,7 @@ export default function RewriteComputer(){
   const [mode,setMode]=createSignal('seeded'),[seedLabel,setSeedLabel]=createSignal('connecting…'),[statusLabel,setStatusLabel]=createSignal('connecting');
 
   const resize=()=>{
-    if(!canvas)return;const rect=canvas.getBoundingClientRect();w=Math.max(1,rect.width);h=Math.max(1,rect.height);dpr=Math.min(globalThis.devicePixelRatio||1,2.5);
+    if(!canvas)return;const rect=canvas.getBoundingClientRect();w=Math.max(1,rect.width);h=Math.max(1,rect.height);dpr=Math.min(globalThis.devicePixelRatio||1,w<600?2:2.75);
     canvas.width=Math.max(1,Math.round(w*dpr));canvas.height=Math.max(1,Math.round(h*dpr));engine.camera.ready=false;
   };
   const disconnect=()=>{connectSeq++;source?.close();source=null;if(refreshTimer)clearInterval(refreshTimer);refreshTimer=null;buffer=[];refreshing=false};
@@ -270,10 +287,10 @@ export default function RewriteComputer(){
   const draw=now=>{
     const dt=last?Math.min(.08,(now-last)/1000):0;last=now;
     if(engine.mode==='live'){
-      engine.acc+=dt*RATE;let guard=0;while(engine.acc>=1&&guard++<48){advanceLive(engine);engine.acc-=1}
+      engine.acc+=dt*RATE;let guard=0;while(engine.acc>=1&&guard++<160){advanceLive(engine);engine.acc-=1}
     }
     const ctx=canvas.getContext('2d');ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
-    const camera=updateCamera(engine,w,h,dt);drawPath(ctx,engine,camera);drawRecent(ctx,engine,camera);drawSparks(ctx,engine,camera,dt);drawHead(ctx,engine,camera,now/1000);drawReadout(ctx,engine,w,h);drawStatus(ctx,engine,w,h);
+    const camera=updateCamera(engine,w,h,dt);drawPath(ctx,engine,camera);drawOrigin(ctx,camera);drawRecent(ctx,engine,camera);drawSparks(ctx,engine,camera,dt);drawHead(ctx,engine,camera,now/1000);drawReadout(ctx,engine,w,h);drawStatus(ctx,engine,w,h);
     frame=requestAnimationFrame(draw);
   };
 
