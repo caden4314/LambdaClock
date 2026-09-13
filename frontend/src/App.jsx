@@ -9,7 +9,7 @@ const MENU_ITEMS=[
   {id:'clock',name:'Clock',note:'Church time',group:'Lambda'},
   {id:'display',name:'Display Lab',note:'rendering system',group:'Other'},
   {id:'rule110',name:'Rule 110',note:'cellular computer',group:'Other'},
-  {id:'rewrite',name:'Rewrite Computer',note:'24/7 seeded + live',group:'Other'},
+  {id:'rewrite',name:'Auth Key Computer',note:'shared-model keys',group:'Other'},
   {id:'fourier',name:'Fourier Machine',note:'harmonic epicycles',group:'Other'},
   {id:'complex',name:'Complex Plane',note:'Mandelbrot orbit',group:'Other'},
   {id:'lorenz',name:'Lorenz System',note:'strange attractor',group:'Other'},

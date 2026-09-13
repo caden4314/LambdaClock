@@ -1,4 +1,5 @@
-import {createSignal,onCleanup,onMount} from 'solid-js';
+import {Show,createSignal,onCleanup,onMount} from 'solid-js';
+import AuthKeyConsole from './AuthKeyConsole.jsx';
 import {initialDirection,makeSeededTurnCursor,normalizeSeed,seededTurn,seedHex} from '../../shared/rewrite-seed.js';
 
 const TAU=Math.PI*2;
@@ -209,7 +210,7 @@ function drawReadout(ctx,engine,w,h){
     label('SEED',1);value(seedHex(engine.seed),1);label('TURN STREAM',2);value(bits||'—',2);label('OUTPUT BUS',3);value(bytes||'—',3);
     label('CHECKPOINT',4);value(`${engine.step.toLocaleString()} / 0x${engine.fnv.toString(16).padStart(16,'0')}`,4,.59);
     label('ANALYSIS',5);value(`H ${e.toFixed(4)}   1s ${(p*100).toFixed(2)}%   AGE ${ageText(engine)}`,5,.46);
-    ctx.fillStyle='rgba(255,255,255,.18)';ctx.font=`${compact?8:9}px ${mono}`;ctx.fillText('CLICK CANVAS TO COPY CHECKPOINT  •  FNV64 NON-CRYPTO',x,y+line*6);
+    ctx.fillStyle='rgba(255,255,255,.18)';ctx.font=`${compact?8:9}px ${mono}`;ctx.fillText('SHARED VISUAL MODEL  •  AUTH KEY ANCHOR SOURCE',x,y+line*6);
   }
   ctx.restore();
 }
@@ -221,7 +222,7 @@ function drawStatus(ctx,engine,w,h){
 export default function RewriteComputer(){
   let canvas,observer,frame,worker=null,source=null,last=0,dpr=1,w=1,h=1,connectSeq=0,refreshing=false,buffer=[],renderSerial=0,debugAt=0;
   let engine=makeEngine('seeded',0n);
-  const [mode,setMode]=createSignal('seeded'),[seedLabel,setSeedLabel]=createSignal('connecting…'),[statusLabel,setStatusLabel]=createSignal('connecting');
+  const [mode,setMode]=createSignal('seeded'),[seedLabel,setSeedLabel]=createSignal('connecting…'),[statusLabel,setStatusLabel]=createSignal('connecting'),[keysOpen,setKeysOpen]=createSignal(false);
   const setUi=()=>{setSeedLabel(seedHex(engine.seed));setStatusLabel(engine.status)};
   const cancelRender=()=>{if(!engine.rendering)return;worker?.postMessage({type:'cancel',id:++renderSerial});engine.rendering=false;engine.pendingRender=[]};
   const resize=()=>{
@@ -326,8 +327,10 @@ export default function RewriteComputer(){
       <button type="button" class={mode()==='seeded'?'active':''} onClick={activateSeeded}>SEEDED 24/7</button>
       <button type="button" class={mode()==='live'?'active':''} onClick={activateLive}>LIVE</button>
       {mode()==='live'&&<button type="button" class="rewrite-new" onClick={activateLive}>NEW SEED</button>}
+      <button type="button" class={keysOpen()?'active rewrite-keys':''} onClick={()=>setKeysOpen(value=>!value)}>KEYS</button>
       <span class="rewrite-seed"><b>{mode()==='seeded'?'WORLD':'SEED'}</b> {seedLabel()}</span>
       <span class="rewrite-link">{statusLabel()}</span>
     </div>
+    <Show when={keysOpen()}><AuthKeyConsole onClose={()=>setKeysOpen(false)}/></Show>
   </div>;
 }
