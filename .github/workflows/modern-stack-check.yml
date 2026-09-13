@@ -23,38 +23,32 @@ jobs:
         run: npm run test:display
       - name: Syntax check backend
         run: |
+          node --check server/seeded-server.mjs
           node --check server/server.mjs
           node --check server/clock-core.mjs
-      - name: Backend HTTP and WebSocket smoke test
+      - name: Seeded backend HTTP and SSE smoke test
         run: |
-          LAMBDA_REVISION="$GITHUB_SHA" npm run backend > /tmp/lambda-backend.log 2>&1 &
+          set -euo pipefail
+          export PORT=8790
+          export HOST=127.0.0.1
+          export REWRITE_STATE_DIR="$RUNNER_TEMP/lambda-backend-state"
+          npm run backend > /tmp/lambda-backend.log 2>&1 &
           PID=$!
           trap 'kill $PID 2>/dev/null || true' EXIT
           for i in $(seq 1 30); do
-            if curl --fail --silent http://127.0.0.1:8789/health >/tmp/health.json; then
-              break
-            fi
+            if curl --fail --silent http://127.0.0.1:8790/health >/tmp/health.json; then break; fi
             sleep 1
           done
           cat /tmp/health.json
-          grep -q 'fastify-websocket-msgpack-v1' /tmp/health.json
-          node <<'NODE'
-          const ws = new WebSocket('ws://127.0.0.1:8789/ws')
-          const timer = setTimeout(() => {
-            console.error('WebSocket smoke test timed out')
-            process.exit(2)
-          }, 5000)
-          ws.addEventListener('open', () => {
-            console.log('WebSocket handshake succeeded')
-            clearTimeout(timer)
-            ws.close()
-            setTimeout(() => process.exit(0), 50)
-          })
-          ws.addEventListener('error', (event) => {
-            console.error('WebSocket smoke test failed', event)
-            process.exit(3)
-          })
-          NODE
+          node -e "const d=require('/tmp/health.json'); if(!d.ok||d.service!=='lambda-seeded-rewrite'||d.rate!==1000) process.exit(1)"
+          curl --fail --silent http://127.0.0.1:8790/seeded/snapshot >/tmp/snapshot.json
+          node -e "const d=require('/tmp/snapshot.json'); if(d.mode!=='seeded'||!Number.isInteger(d.step)||d.step<0||!d.seed) process.exit(1)"
+          set +e
+          curl --silent --no-buffer --max-time 2 http://127.0.0.1:8790/seeded/stream >/tmp/stream.txt
+          code=$?
+          set -e
+          if [[ $code -ne 0 && $code -ne 28 ]]; then exit $code; fi
+          grep -q '^event: hello' /tmp/stream.txt
           kill $PID
           wait $PID || true
           trap - EXIT
