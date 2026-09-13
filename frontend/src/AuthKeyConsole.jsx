@@ -1,4 +1,4 @@
-import {For,Show,createMemo,createSignal,onCleanup} from 'solid-js';
+import {For,Show,createMemo,createSignal,onCleanup,onMount} from 'solid-js';
 
 const API='/api/auth';
 const DEFAULT_SCOPE='api:access';
@@ -38,6 +38,8 @@ export default function AuthKeyConsole(props){
   const [audit,setAudit]=createSignal([]);
   const [csrf,setCsrf]=createSignal('');
   const [policy,setPolicy]=createSignal(null);
+  const [currentModel,setCurrentModel]=createSignal(null);
+  const [modelStatus,setModelStatus]=createSignal('unknown');
   const [error,setError]=createSignal('');
   const [issued,setIssued]=createSignal(null);
   const [copied,setCopied]=createSignal(false);
@@ -62,6 +64,8 @@ export default function AuthKeyConsole(props){
       setAudit(Array.isArray(data.audit)?data.audit:[]);
       setCsrf(String(data.csrf_token||''));
       setPolicy(data.policy||null);
+      setCurrentModel(data.current_model||null);
+      setModelStatus(String(data.model_status||'unknown'));
       setState('ready');
     }catch(err){
       if(err?.handled)return;
@@ -109,7 +113,7 @@ export default function AuthKeyConsole(props){
   const dismissSecret=()=>{clearTimeout(wipeTimer);setIssued(null);setCopied(false)};
 
   onCleanup(()=>{clearTimeout(wipeTimer);clearTimeout(copyTimer);setIssued(null)});
-  queueMicrotask(load);
+  onMount(load);
 
   return <aside class="auth-console" aria-label="Secure authorization key manager">
     <header class="auth-console__head">
@@ -117,7 +121,7 @@ export default function AuthKeyConsole(props){
       <button type="button" onClick={props.onClose} aria-label="Close authorization key manager">CLOSE</button>
     </header>
 
-    <div class="auth-console__trust">SERVER CSPRNG 256-BIT SECRET <i>•</i> HMAC-SHA-256 VERIFIER <i>•</i> REWRITE STREAM IS VISUAL ONLY</div>
+    <div class="auth-console__trust">SHARED VISUAL MODEL ANCHOR <i>•</i> SERVER CSPRNG NONCE <i>•</i> HMAC-SHA-256 DERIVATION</div>
 
     <Show when={state()==='loading'}><div class="auth-console__message">ESTABLISHING SECURE MANAGEMENT SESSION…</div></Show>
     <Show when={state()==='login'}><div class="auth-console__message"><b>SIGN-IN REQUIRED</b><span>Authenticate with Scenic Route Discord before managing keys.</span><a href="/auth/discord">SIGN IN</a></div></Show>
@@ -126,23 +130,31 @@ export default function AuthKeyConsole(props){
 
     <Show when={state()==='ready'}>
       <div class="auth-console__scroll">
+        <section class="auth-model">
+          <div class="auth-section-title"><span>SHARED VISUAL MODEL</span><b>{modelStatus().toUpperCase()}</b></div>
+          <Show when={currentModel()} fallback={<p class="auth-empty">MODEL OFFLINE — KEY MINTING IS LOCKED</p>}>{model=>{
+            const state=()=>model().state||{};
+            return <dl><dt>WORLD</dt><dd>{state().seed||'—'}</dd><dt>STEP</dt><dd>{Number(state().step||0).toLocaleString()}</dd><dt>ANCHOR</dt><dd>{model().anchor||'—'}</dd><dt>STATE</dt><dd>{state().x??'—'}, {state().y??'—'} · {state().heading||'—'} · FNV {state().fnv64||'—'}</dd></dl>;
+          }}</Show>
+          <small>Every new or rotated key is derived from the exact authoritative checkpoint shown here. The shared model is public; server-only key material keeps the resulting bearer key unpredictable.</small>
+        </section>
         <Show when={issued()}>{secret=><section class="auth-secret">
           <div class="auth-section-title"><span>ONE-TIME SECRET</span><b>SAVE NOW</b></div>
-          <p>This value is never stored by the server and cannot be shown again. It disappears from this page after two minutes.</p>
+          <p>This model-derived bearer key is returned once, never stored in raw form, and disappears from this page after two minutes.</p>
           <textarea readOnly spellcheck={false} autocomplete="off" value={secret().key}/>
           <div class="auth-actions"><button type="button" onClick={copyKey}>{copied()?'COPIED':'COPY KEY'}</button><button type="button" onClick={dismissSecret}>I SAVED IT</button></div>
-          <small>FINGERPRINT {secret().metadata?.fingerprint||'—'}</small>
+          <small>MODEL STEP {Number(secret().metadata?.model?.step||0).toLocaleString()} · ANCHOR {secret().metadata?.model_anchor_tag||'—'} · FINGERPRINT {secret().metadata?.fingerprint||'—'}</small>
         </section>}</Show>
 
         <section class="auth-issue">
-          <div class="auth-section-title"><span>ISSUE KEY</span><b>{policy()?.default_ttl_days||90}D DEFAULT</b></div>
+          <div class="auth-section-title"><span>MINT FROM SHARED MODEL</span><b>{policy()?.default_ttl_days||90}D DEFAULT</b></div>
           <form onSubmit={issue} autocomplete="off">
             <label>LABEL<input maxlength="80" value={label()} onInput={e=>setLabel(e.currentTarget.value)} placeholder="beammp-controller" required/></label>
             <label>SCOPES<input value={scopes()} onInput={e=>setScopes(e.currentTarget.value)} placeholder="events:read, events:write" required/></label>
             <label>LIFETIME<select value={ttl()} onChange={e=>setTtl(e.currentTarget.value)}><option value="7">7 DAYS</option><option value="30">30 DAYS</option><option value="90">90 DAYS</option><option value="365">365 DAYS</option></select></label>
-            <button class="auth-primary" type="submit" disabled={busy()!==''||!label().trim()||!parsedScopes().length}>{busy()==='issue'?'GENERATING…':'GENERATE SECURE KEY'}</button>
+            <button class="auth-primary" type="submit" disabled={busy()!==''||modelStatus()!=='online'||!label().trim()||!parsedScopes().length}>{busy()==='issue'?'DERIVING…':modelStatus()==='online'?'MINT MODEL-DERIVED KEY':'MODEL OFFLINE'}</button>
           </form>
-          <small>Scopes accept exact names such as <code>events:read</code>, namespace wildcards such as <code>events:*</code>, or <code>*</code>. Prefer the smallest scope set a client needs.</small>
+          <small>The server captures a fresh Shared Visual Model checkpoint when you mint. Scopes accept exact names such as <code>events:read</code>, namespace wildcards such as <code>events:*</code>, or <code>*</code>.</small>
         </section>
 
         <section class="auth-keys">
@@ -151,7 +163,7 @@ export default function AuthKeyConsole(props){
             <For each={keys()}>{key=><article class={`auth-key auth-key--${key.status}`}>
               <div class="auth-key__top"><b>{key.label}</b><span>{key.status}</span></div>
               <code>{key.prefix}_••••••••••••••••</code>
-              <dl><dt>FP</dt><dd>{key.fingerprint}</dd><dt>SCOPE</dt><dd>{(key.scopes||[]).join(' ')}</dd><dt>EXPIRES</dt><dd>{formatTime(key.expires_at)}</dd><dt>USED</dt><dd>{key.last_used_at?formatTime(key.last_used_at):'never'} · {key.use_count||0}</dd></dl>
+              <dl><dt>MODEL</dt><dd>step {Number(key.model?.step||0).toLocaleString()} · {key.model_anchor_tag||'—'}</dd><dt>FP</dt><dd>{key.fingerprint}</dd><dt>SCOPE</dt><dd>{(key.scopes||[]).join(' ')}</dd><dt>EXPIRES</dt><dd>{formatTime(key.expires_at)}</dd><dt>USED</dt><dd>{key.last_used_at?formatTime(key.last_used_at):'never'} · {key.use_count||0}</dd></dl>
               <Show when={key.status==='active'}><div class="auth-actions"><button type="button" disabled={busy()!==''} onClick={()=>rotate(key)}>{busy()===`rotate:${key.key_id}`?'ROTATING…':'ROTATE'}</button><button type="button" class="danger" disabled={busy()!==''} onClick={()=>revoke(key)}>{busy()===`revoke:${key.key_id}`?'REVOKING…':'REVOKE'}</button></div></Show>
             </article>}</For>
           </Show>
